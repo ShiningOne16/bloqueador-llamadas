@@ -13,13 +13,28 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    // Llave fija para que cada versión nueva se instale encima de la anterior.
+    // (Solo para uso personal; para publicar en Play Store usa una llave privada.)
+    signingConfigs {
+        create("fija") {
+            storeFile = file("bloqueador.keystore")
+            storePassword = "bloqueador"
+            keyAlias = "bloqueador"
+            keyPassword = "bloqueador"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fija")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fija")
         }
     }
 

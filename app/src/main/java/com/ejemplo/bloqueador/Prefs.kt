@@ -6,10 +6,14 @@ import org.json.JSONObject
 
 data class BlockedCall(val number: String, val timestamp: Long)
 
-/** Ajustes y registro de llamadas bloqueadas, guardados en SharedPreferences. */
+data class SilencedSms(val sender: String, val text: String, val timestamp: Long)
+
+/** Ajustes y registros (llamadas bloqueadas y SMS silenciados), guardados en SharedPreferences. */
 class Prefs(context: Context) {
 
     private val sp = context.getSharedPreferences("bloqueador", Context.MODE_PRIVATE)
+
+    // ---------- Llamadas ----------
 
     var enabled: Boolean
         get() = sp.getBoolean(KEY_ENABLED, true)
@@ -25,20 +29,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, true)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
-    fun blockedCalls(): List<BlockedCall> {
-        val arr = JSONArray(sp.getString(KEY_LOG, "[]"))
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
-            BlockedCall(o.getString("n"), o.getLong("t"))
-        }
+    fun blockedCalls(): List<BlockedCall> = readArray(KEY_LOG).map {
+        BlockedCall(it.getString("n"), it.getLong("t"))
     }
 
     @Synchronized
     fun addBlocked(number: String, timestamp: Long) {
         val list = listOf(BlockedCall(number, timestamp)) + blockedCalls()
-        val arr = JSONArray()
-        list.take(MAX_LOG).forEach { arr.put(JSONObject().put("n", it.number).put("t", it.timestamp)) }
-        sp.edit().putString(KEY_LOG, arr.toString()).apply()
+        writeArray(KEY_LOG, list.take(MAX_LOG).map { JSONObject().put("n", it.number).put("t", it.timestamp) })
     }
 
     fun clearLog() = sp.edit().remove(KEY_LOG).apply()
@@ -52,11 +50,59 @@ class Prefs(context: Context) {
         return blockedCalls().any { normalize(it.number) == key && now - it.timestamp <= windowMs }
     }
 
+    // ---------- Mensajes (SMS) ----------
+
+    /** Silenciar notificaciones de SMS de números que no están en contactos. */
+    var smsEnabled: Boolean
+        get() = sp.getBoolean(KEY_SMS_ENABLED, true)
+        set(v) = sp.edit().putBoolean(KEY_SMS_ENABLED, v).apply()
+
+    /**
+     * También silenciar remitentes con nombre de empresa (BANCO, TELCEL…) y códigos cortos (2525…).
+     * Apagado por defecto para no esconder códigos de verificación.
+     */
+    var smsIncludeBusiness: Boolean
+        get() = sp.getBoolean(KEY_SMS_BUSINESS, false)
+        set(v) = sp.edit().putBoolean(KEY_SMS_BUSINESS, v).apply()
+
+    fun silencedSms(): List<SilencedSms> = readArray(KEY_SMS_LOG).map {
+        SilencedSms(it.getString("s"), it.optString("m"), it.getLong("t"))
+    }
+
+    @Synchronized
+    fun addSilencedSms(sender: String, text: String, timestamp: Long) {
+        val current = silencedSms()
+        // Las apps de SMS actualizan la misma notificación varias veces: evitamos duplicados
+        if (current.any { it.sender == sender && it.text == text && timestamp - it.timestamp < 60_000 }) return
+        val list = listOf(SilencedSms(sender, text, timestamp)) + current
+        writeArray(KEY_SMS_LOG, list.take(MAX_LOG).map {
+            JSONObject().put("s", it.sender).put("m", it.text).put("t", it.timestamp)
+        })
+    }
+
+    fun clearSmsLog() = sp.edit().remove(KEY_SMS_LOG).apply()
+
+    // ---------- utilidades ----------
+
+    private fun readArray(key: String): List<JSONObject> {
+        val arr = try { JSONArray(sp.getString(key, "[]")) } catch (e: Exception) { JSONArray() }
+        return (0 until arr.length()).map { arr.getJSONObject(it) }
+    }
+
+    private fun writeArray(key: String, items: List<JSONObject>) {
+        val arr = JSONArray()
+        items.forEach { arr.put(it) }
+        sp.edit().putString(key, arr.toString()).apply()
+    }
+
     companion object {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_BLOCK_HIDDEN = "block_hidden"
         private const val KEY_ALLOW_REPEAT = "allow_repeat"
         private const val KEY_LOG = "log"
+        private const val KEY_SMS_ENABLED = "sms_enabled"
+        private const val KEY_SMS_BUSINESS = "sms_business"
+        private const val KEY_SMS_LOG = "sms_log"
         private const val MAX_LOG = 200
 
         /** Compara por los últimos 10 dígitos para ignorar prefijos como +52. */

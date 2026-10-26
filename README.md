@@ -11,6 +11,8 @@ root ni quedarse abierta: Android le pregunta a la app antes de que suene cada l
 - Opcional: si el mismo número vuelve a llamar en menos de 3 minutos, lo deja pasar (por si es una urgencia).
 - Muestra una lista de las llamadas bloqueadas.
 - Las llamadas bloqueadas siguen apareciendo en el historial del teléfono, por si quieres devolverlas.
+- **Mensajes:** los SMS de números desconocidos llegan a tu app de mensajes, pero sin sonido ni notificación,
+  y quedan en la pestaña "Mensajes". Opcional: incluir empresas (BANCO, TELCEL…) y códigos cortos.
 
 Requiere **Android 10 o superior**.
 
@@ -32,16 +34,22 @@ Requiere **Android 10 o superior**.
 1. Abre la app.
 2. Pulsa **Activar filtrado** y elige *Bloqueador* como app de filtrado de llamadas / spam.
 3. Pulsa **Permitir contactos**.
-4. Listo. Puedes cerrar la app.
+4. En la pestaña **Mensajes**, toca **Dar acceso a notificaciones** y activa *Bloqueador*.
+   Si Android dice "Configuración restringida": abre la info de la app → menú ⋮ → *Permitir configuración restringida*.
+5. Listo. Puedes cerrar la app.
 
 Para desactivarla temporalmente, usa el interruptor "Bloquear desconocidos".
 
 ## Estructura
 - `BlockerService.kt` – decide si cada llamada entrante pasa o se rechaza.
+- `SmsNotificationListener.kt` – quita las notificaciones de SMS de desconocidos.
+- `Contacts.kt` – consultas a la agenda.
 - `Prefs.kt` – ajustes y registro de llamadas bloqueadas.
 - `MainActivity.kt` – pantalla de configuración (Jetpack Compose).
 
 ## Notas
 - Si la app no tiene permiso de contactos, **no bloquea nada** (para no colgarle a gente conocida).
 - Los números se comparan por sus últimos 10 dígitos, así `+52 55 1234 5678` y `55 1234 5678` cuentan como el mismo.
+- Android no deja que una app que no es la de mensajes predeterminada bloquee SMS; por eso aquí se silencian
+  (el mensaje queda en tu app de SMS, sin avisar).
 - Algunas marcas (Xiaomi, Huawei, etc.) pueden pedir que desactives el ahorro de batería para la app.

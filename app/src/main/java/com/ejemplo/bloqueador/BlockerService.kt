@@ -1,10 +1,5 @@
 package com.ejemplo.bloqueador
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.provider.ContactsContract
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
@@ -52,7 +47,8 @@ class BlockerService : CallScreeningService() {
             return true
         }
 
-        if (isInContacts(this, number)) return false
+        // Sin permiso de contactos no sabemos quién es conocido: no bloqueamos (la app avisa en pantalla)
+        if (!Contacts.hasPermission(this) || Contacts.isNumberInContacts(this, number)) return false
 
         if (prefs.allowRepeat && prefs.recentlyBlocked(number, now, REPEAT_WINDOW_MS)) {
             Log.i(TAG, "Segundo intento de $number: se deja pasar")
@@ -75,23 +71,5 @@ class BlockerService : CallScreeningService() {
     companion object {
         private const val TAG = "BlockerService"
         const val REPEAT_WINDOW_MS = 3 * 60 * 1000L // 3 minutos
-
-        fun isInContacts(context: Context, number: String): Boolean {
-            if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                // Sin permiso no podemos saberlo: por seguridad, se trata como contacto
-                // para no bloquear a gente conocida. La app avisa en pantalla.
-                return true
-            }
-            val uri = Uri.withAppendedPath(
-                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                Uri.encode(number)
-            )
-            context.contentResolver.query(
-                uri, arrayOf(ContactsContract.PhoneLookup._ID), null, null, null
-            )?.use { return it.count > 0 }
-            return false
-        }
     }
 }
