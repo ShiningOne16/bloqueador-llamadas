@@ -13,8 +13,8 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     // Llave fija para que cada versión nueva se instale encima de la anterior.
@@ -25,6 +25,10 @@ android {
             storePassword = "bloqueador"
             keyAlias = "bloqueador"
             keyPassword = "bloqueador"
+            // Las tres firmas, para que lo acepten todos los instaladores (Oppo, Realme, Xiaomi…)
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
