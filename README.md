@@ -6,6 +6,18 @@ root ni quedarse abierta: Android le pregunta a la app antes de que suene cada l
 
 ## Qué hace
 
+Funciona como app de teléfono, con cinco pestañas:
+
+- **Recientes:** registro de llamadas con filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto.
+- **Contactos:** tu agenda con búsqueda (sin importar acentos), favoritos y letras. Llama, manda SMS o edita.
+- **Teclado:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
+- **Mensajes:** tus SMS por conversación, con filtros de no leídos y desconocidos. "Responder" abre tu app de SMS.
+- **Bloqueo:** los ajustes de bloqueo de llamadas y SMS (abajo).
+
+La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
+
+### Bloqueo
+
 - Rechaza llamadas de números que no están en tus contactos, sin que suene el teléfono.
 - Opcional: bloquea números ocultos o privados.
 - Opcional: si el mismo número vuelve a llamar en menos de 3 minutos, lo deja pasar (por si es una urgencia).
@@ -33,7 +45,7 @@ Requiere **Android 10 o superior**.
 ## Primer uso
 1. Abre la app.
 2. Pulsa **Activar filtrado** y elige *Bloqueador* como app de filtrado de llamadas / spam.
-3. Pulsa **Permitir contactos**.
+3. Acepta los permisos que pide al abrir (contactos, registro de llamadas, teléfono y SMS).
 4. En la pestaña **Mensajes**, toca **Dar acceso a notificaciones** y activa *Bloqueador*.
    Si Android dice "Configuración restringida": abre la info de la app → menú ⋮ → *Permitir configuración restringida*.
 5. Listo. Puedes cerrar la app.
@@ -45,7 +57,10 @@ Para desactivarla temporalmente, usa el interruptor "Bloquear desconocidos".
 - `SmsNotificationListener.kt` – quita las notificaciones de SMS de desconocidos.
 - `Contacts.kt` – consultas a la agenda.
 - `Prefs.kt` – ajustes y registro de llamadas bloqueadas.
-- `MainActivity.kt` – pantalla de configuración (Jetpack Compose).
+- `MainActivity.kt` – navegación entre pestañas (Jetpack Compose).
+- `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
+- `ScreenRecents.kt`, `ScreenContacts.kt`, `ScreenKeypad.kt`, `ScreenMessages.kt`, `ScreenBlocking.kt` – cada pestaña.
+- `Ui.kt` – componentes comunes.
 
 ## Notas
 - Si la app no tiene permiso de contactos, **no bloquea nada** (para no colgarle a gente conocida).
