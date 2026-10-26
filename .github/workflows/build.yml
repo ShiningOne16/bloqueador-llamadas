@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,8 +24,20 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk Bloqueador.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: Bloqueador-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: Bloqueador.apk
+
+      # Publica el APK como descarga directa en la sección "Releases"
+      - name: Publicar en Releases
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Bloqueador ${{ github.run_number }}
+          body: Descarga **Bloqueador.apk** e instálalo en tu teléfono (Android 10 o superior).
+          files: Bloqueador.apk
+          make_latest: true
