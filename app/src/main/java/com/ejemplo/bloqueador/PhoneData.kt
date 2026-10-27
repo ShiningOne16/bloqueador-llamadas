@@ -99,7 +99,15 @@ object PhoneData {
                 )
             }
         }
-        return out
+
+        // El nombre que guarda Android (CACHED_NAME) es el del momento de la llamada y no se
+        // actualiza al guardar, editar o borrar un contacto. Se busca en la agenda actual.
+        if (!has(context, Manifest.permission.READ_CONTACTS)) return out
+        val nombres = nameIndex(loadContacts(context))
+        return out.map { call ->
+            val clave = Prefs.normalize(call.number)
+            call.copy(name = if (clave.isEmpty()) null else nombres[clave])
+        }
     }
 
     fun groupCalls(calls: List<CallEntry>): List<CallGroup> {
