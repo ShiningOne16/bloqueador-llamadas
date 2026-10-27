@@ -3,16 +3,17 @@ package com.ejemplo.bloqueador
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Email
@@ -30,7 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -161,34 +164,8 @@ fun FormularioContacto(peticion: PeticionFormulario, onCerrar: () -> Unit, onGua
                 .padding(horizontal = Esp.l, vertical = Esp.l),
             verticalArrangement = Arrangement.spacedBy(Esp.m)
         ) {
-            // ---- Dónde se guarda
-            if (editando) {
-                cuenta?.let { c ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
-                        Icon(iconoCuenta(c.tipo), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(
-                            "Guardado en: ${c.titulo}" + if (c.tipo == TipoCuenta.GOOGLE && c.accountName != null) " (${c.accountName})" else "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                Text("Guardar en", style = MaterialTheme.typography.titleMedium)
-                Tarjeta(Modifier.selectableGroup()) {
-                    cuentas.forEachIndexed { i, c ->
-                        if (i > 0) Separador()
-                        OpcionCuenta(c, seleccionada = c.id == cuenta?.id) { cuenta = c }
-                    }
-                }
-            }
-
-            if (esSim) {
-                Aviso("La SIM solo guarda nombre y un número. El nombre puede recortarse según tu tarjeta.")
-            }
-
             // ---- Nombre
-            Text("Nombre", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = Esp.s))
+            Text("Nombre", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
                 value = form.nombre,
                 onValueChange = { form = form.copy(nombre = it) },
@@ -249,6 +226,30 @@ fun FormularioContacto(peticion: PeticionFormulario, onCerrar: () -> Unit, onGua
                     ) { form = form.copy(favorito = it) }
                 }
             }
+            // ---- Dónde se guarda (al final: primero va la información del contacto)
+            Text("Guardar en", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = Esp.s))
+            if (editando) {
+                cuenta?.let { c ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
+                        Icon(iconoCuenta(c.tipo), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            c.titulo + (c.subtitulo?.let { " · $it" } ?: ""),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    Text(
+                        "Un contacto guardado no se puede mover de lugar desde aquí.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                SelectorCuenta(cuentas, cuenta) { cuenta = it }
+            }
+            if (esSim) {
+                Aviso("La SIM solo guarda nombre y un número. El nombre puede recortarse según tu tarjeta.")
+            }
+
             Spacer(Modifier.height(Esp.xl))
         }
     }
@@ -264,16 +265,74 @@ fun FormularioContacto(peticion: PeticionFormulario, onCerrar: () -> Unit, onGua
     }
 }
 
+/** Lista desplegable con los lugares donde guardar (cada cuenta de Google aparece con su correo). */
 @Composable
-private fun OpcionCuenta(c: CuentaContacto, seleccionada: Boolean, onClick: () -> Unit) {
-    ListItem(
-        modifier = Modifier.selectable(selected = seleccionada, role = Role.RadioButton, onClick = onClick),
-        leadingContent = { Icon(iconoCuenta(c.tipo), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text(c.titulo, style = MaterialTheme.typography.bodyLarge) },
-        supportingContent = { Text(c.detalle) },
-        trailingContent = { RadioButton(selected = seleccionada, onClick = null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+private fun SelectorCuenta(
+    cuentas: List<CuentaContacto>,
+    seleccionada: CuentaContacto?,
+    onSeleccion: (CuentaContacto) -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(Esp.xs)) {
+        Box {
+            Surface(
+                onClick = { abierto = true },
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .semantics { contentDescription = "Guardar en: ${seleccionada?.titulo ?: "elige un lugar"}. Toca para cambiar" }
+            ) {
+                Row(
+                    Modifier.padding(horizontal = Esp.l, vertical = Esp.m),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Esp.m)
+                ) {
+                    seleccionada?.let {
+                        Icon(iconoCuenta(it.tipo), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(seleccionada?.titulo ?: "Elige dónde guardar", style = MaterialTheme.typography.bodyLarge)
+                        seleccionada?.subtitulo?.let {
+                            Text(it, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Icon(
+                        if (abierto) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
+                        contentDescription = null
+                    )
+                }
+            }
+            DropdownMenu(
+                expanded = abierto,
+                onDismissRequest = { abierto = false },
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                cuentas.forEach { c ->
+                    val activa = c.id == seleccionada?.id
+                    DropdownMenuItem(
+                        leadingIcon = { Icon(iconoCuenta(c.tipo), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        text = {
+                            Column(Modifier.padding(vertical = Esp.xs)) {
+                                Text(c.titulo, style = MaterialTheme.typography.bodyLarge)
+                                c.subtitulo?.let {
+                                    Text(it, style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        },
+                        trailingIcon = if (activa) ({ Icon(Icons.Filled.Check, contentDescription = "Seleccionado") }) else null,
+                        onClick = { onSeleccion(c); abierto = false },
+                        modifier = Modifier.heightIn(min = 56.dp)
+                    )
+                }
+            }
+        }
+        seleccionada?.let {
+            Text(it.detalle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable

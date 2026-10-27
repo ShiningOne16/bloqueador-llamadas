@@ -40,12 +40,20 @@ data class CuentaContacto(
             TipoCuenta.OTRA -> accountName ?: accountType ?: "Otra cuenta"
         }
 
+    /** Segunda línea en la lista: el correo de la cuenta de Google, por ejemplo. */
+    val subtitulo: String?
+        get() = when (tipo) {
+            TipoCuenta.GOOGLE, TipoCuenta.OTRA -> accountName
+            else -> null
+        }
+
+    /** Explicación breve de qué implica guardar aquí. */
     val detalle: String
         get() = when (tipo) {
-            TipoCuenta.GOOGLE -> "${accountName.orEmpty()} · Respaldo en la nube y en contacts.google.com"
+            TipoCuenta.GOOGLE -> "Se respalda en tu cuenta y aparece en contacts.google.com."
             TipoCuenta.SIM -> "Solo nombre y un número. Se queda en la tarjeta."
             TipoCuenta.TELEFONO -> "No se respalda. Si cambias de teléfono, se pierde."
-            TipoCuenta.OTRA -> accountType.orEmpty()
+            TipoCuenta.OTRA -> "Se sincroniza con esa cuenta."
         }
 }
 
