@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -23,7 +23,12 @@ jobs:
       - name: Compilar APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
+          set -o pipefail
+          if ! ./gradlew assembleRelease --console=plain 2>&1 | tee build.log; then
+            # Muestra los errores como avisos en la página de la compilación
+            grep -E "^e: |ERROR:|error:" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
           cp app/build/outputs/apk/release/app-release.apk Bloqueador.apk
 
       - name: Verificar firma
