@@ -49,6 +49,7 @@ fun PantallaTeclado(refreshKey: Int) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val extra = LocalColoresExtra.current
+    val abrirFormulario = LocalAbrirFormulario.current
     var numero by rememberSaveable { mutableStateOf("") }
 
     // Contactos para sugerir mientras marcas
@@ -182,7 +183,7 @@ fun PantallaTeclado(refreshKey: Int) {
         ) {
             Box(Modifier.size(tecla), contentAlignment = Alignment.Center) {
                 if (numero.isNotEmpty() && nombreExacto == null) {
-                    IconButton(onClick = { Acciones.nuevoContacto(context, numero) }, modifier = Modifier.size(56.dp)) {
+                    IconButton(onClick = { abrirFormulario(PeticionFormulario(numero = numero)) }, modifier = Modifier.size(56.dp)) {
                         Icon(Icons.Filled.PersonAdd, contentDescription = "Guardar como contacto",
                             tint = MaterialTheme.colorScheme.primary)
                     }

@@ -4,6 +4,10 @@
     <!-- Para saber si el número que llama está en tus contactos -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Crear, editar y borrar contactos en Google, la SIM o el teléfono -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+
     <!-- Funciones de teléfono: registro de llamadas, llamar directo y leer SMS -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.CALL_PHONE" />

@@ -29,7 +29,9 @@ data class ContactEntry(
     val lookupKey: String,
     val name: String,
     val numbers: List<String>,
-    val starred: Boolean
+    val starred: Boolean,
+    /** Dónde está guardado: Google, SIM, teléfono. */
+    val cuentas: Set<TipoCuenta> = emptySet()
 ) {
     val lookupUri: Uri get() = ContactsContract.Contacts.getLookupUri(id, lookupKey)
 }
@@ -58,6 +60,8 @@ object PhoneData {
 
     val PERMISOS = arrayOf(
         Manifest.permission.READ_CONTACTS,
+        Manifest.permission.WRITE_CONTACTS,
+        Manifest.permission.GET_ACCOUNTS,
         Manifest.permission.READ_CALL_LOG,
         Manifest.permission.CALL_PHONE,
         Manifest.permission.READ_SMS
@@ -150,7 +154,8 @@ object PhoneData {
                 }
             }
         }
-        return map.values.toList()
+        val origen = ContactStore.cuentasPorContacto(context)
+        return map.values.map { it.copy(cuentas = origen[it.id].orEmpty()) }
     }
 
     /** Mapa número normalizado → nombre del contacto. */

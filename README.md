@@ -9,7 +9,7 @@ root ni quedarse abierta: Android le pregunta a la app antes de que suene cada l
 Funciona como app de teléfono, con cinco pestañas (Recientes, Contactos, Marcar, Mensajes y Protección):
 
 - **Recientes:** registro de llamadas con filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto.
-- **Contactos:** tu agenda con búsqueda (sin importar acentos), favoritos y letras. Llama, manda SMS o edita.
+- **Contactos:** tu agenda con búsqueda (sin importar acentos), favoritos y filtro por origen. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
 - **Mensajes:** tus SMS por conversación, con filtros de no leídos y desconocidos. "Responder" abre tu app de SMS.
 - **Protección:** te dice en una frase si estás protegido, los pasos que faltan, los ajustes y la actividad.
@@ -68,6 +68,8 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
 - `ScreenRecents.kt`, `ScreenContacts.kt`, `ScreenKeypad.kt`, `ScreenMessages.kt`, `ScreenProtection.kt` – cada pestaña.
 - `Theme.kt` – sistema de diseño (colores, tipografía, formas, espaciado).
+- `ContactStore.kt` – cuentas disponibles y crear/editar/eliminar contactos.
+- `ScreenContactForm.kt` – formulario de contacto.
 - `Ui.kt` – componentes comunes.
 
 ## Notas

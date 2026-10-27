@@ -200,6 +200,7 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit)
 @Composable
 fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCerrar: () -> Unit) {
     val context = LocalContext.current
+    val abrirFormulario = LocalAbrirFormulario.current
     val titulo = nombre ?: numero.ifBlank { "Número oculto" }
     ModalBottomSheet(onDismissRequest = onCerrar, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(
@@ -224,7 +225,7 @@ fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCe
                     BotonRedondo(Icons.Filled.Call, "Llamar", { Acciones.llamar(context, numero); onCerrar() }, destacado = true)
                     BotonRedondo(Icons.Filled.Sms, "Mensaje", { Acciones.mensaje(context, numero); onCerrar() })
                     if (nombre == null) {
-                        BotonRedondo(Icons.Filled.PersonAdd, "Guardar", { Acciones.nuevoContacto(context, numero); onCerrar() })
+                        BotonRedondo(Icons.Filled.PersonAdd, "Guardar", { onCerrar(); abrirFormulario(PeticionFormulario(numero = numero)) })
                     }
                 }
             }

@@ -45,6 +45,9 @@ enum class Seccion(val titulo: String, val icono: ImageVector, val iconoActivo: 
     PROTECCION("Protección", Icons.Outlined.Shield, Icons.Filled.Shield)
 }
 
+/** Abre el formulario de contacto desde cualquier pantalla. */
+val LocalAbrirFormulario = staticCompositionLocalOf<(PeticionFormulario) -> Unit> { {} }
+
 class MainActivity : ComponentActivity() {
 
     // Se incrementa al volver a la app para recargar registro, contactos y mensajes
@@ -81,6 +84,47 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         if (faltan.isEmpty()) onChanged() else pedir.launch(faltan.toTypedArray())
     }
 
+    // Formulario de contacto (pantalla completa encima de las pestañas)
+    var formAbierto by rememberSaveable { mutableStateOf(false) }
+    var formContactId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var formNumero by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendiente by remember { mutableStateOf<PeticionFormulario?>(null) }
+
+    fun mostrarFormulario(p: PeticionFormulario) {
+        formContactId = p.contactId
+        formNumero = p.numero
+        formAbierto = true
+    }
+
+    // Si falta el permiso para escribir contactos, se pide primero y luego se abre el formulario
+    val pedirParaFormulario = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        onChanged()
+        pendiente?.let { p ->
+            if (PhoneData.has(context, android.Manifest.permission.WRITE_CONTACTS)) mostrarFormulario(p)
+            else android.widget.Toast.makeText(context, "Se necesita permiso de contactos para guardar.", android.widget.Toast.LENGTH_LONG).show()
+        }
+        pendiente = null
+    }
+    val abrirFormulario: (PeticionFormulario) -> Unit = { p ->
+        if (PhoneData.has(context, android.Manifest.permission.WRITE_CONTACTS)) {
+            mostrarFormulario(p)
+        } else {
+            pendiente = p
+            pedirParaFormulario.launch(PhoneData.missing(context).toTypedArray())
+        }
+    }
+
+    if (formAbierto) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+            FormularioContacto(
+                PeticionFormulario(formContactId, formNumero),
+                onCerrar = { formAbierto = false },
+                onGuardado = onChanged
+            )
+        }
+        return
+    }
+
     if (bienvenida) {
         Bienvenida(
             onContinuar = {
@@ -97,6 +141,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         return
     }
 
+    CompositionLocalProvider(LocalAbrirFormulario provides abrirFormulario) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -125,6 +170,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
                 Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos)
             }
         }
+    }
     }
 }
 
@@ -166,13 +212,13 @@ private fun Bienvenida(onContinuar: () -> Unit, onOmitir: () -> Unit) {
             Separador()
             Punto(Icons.Filled.NotificationsOff, "Mensajes en silencio", "Los SMS de desconocidos llegan, pero sin sonar ni avisar.")
             Separador()
-            Punto(Icons.Outlined.PhoneAndroid, "Todo en un lugar", "Llamadas recientes, contactos, marcador y mensajes.")
+            Punto(Icons.Outlined.PhoneAndroid, "Todo en un lugar", "Llamadas recientes, contactos (en Google o la SIM), marcador y mensajes.")
         }
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
             Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Text(
-                "Pediremos permiso para ver tus contactos, llamadas y SMS. Nada sale de tu teléfono.",
+                "Pediremos permiso para ver y guardar tus contactos, y ver tus llamadas y SMS. La app no envía nada a internet.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

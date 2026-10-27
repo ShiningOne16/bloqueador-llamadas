@@ -92,7 +92,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                     Paso(
                         1, estado.permisos,
                         "Permisos del teléfono",
-                        "Para ver contactos, llamadas y mensajes.",
+                        "Para ver y guardar contactos, y ver llamadas y mensajes.",
                         "Permitir", onClick = pedirPermisos
                     )
                     Separador()
