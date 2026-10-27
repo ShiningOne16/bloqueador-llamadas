@@ -125,7 +125,7 @@ fun PantallaTeclado(refreshKey: Int) {
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            overflow = TextOverflow.StartEllipsis,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Esp.l)
                 .semantics {
                     liveRegion = LiveRegionMode.Polite
