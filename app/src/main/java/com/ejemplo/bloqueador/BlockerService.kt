@@ -43,15 +43,27 @@ class BlockerService : CallScreeningService() {
 
         if (hidden) {
             if (!prefs.blockHidden) return false
-            prefs.addBlocked(getString(R.string.hidden_number), now)
+            val etiqueta = getString(R.string.hidden_number)
+            val last = prefs.lastBlockedAt(etiqueta)
+            if (last == null || now - last >= RETRY_WINDOW_MS) prefs.addBlocked(etiqueta, now)
             return true
         }
 
         // Sin permiso de contactos no sabemos quién es conocido: no bloqueamos (la app avisa en pantalla)
         if (!Contacts.hasPermission(this) || Contacts.isNumberInContacts(this, number)) return false
 
-        if (prefs.allowRepeat && prefs.recentlyBlocked(number, now, REPEAT_WINDOW_MS)) {
-            Log.i(TAG, "Segundo intento de $number: se deja pasar")
+        val last = prefs.lastBlockedAt(number)
+
+        // Al rechazar una llamada, algunas compañías (o el paso de VoLTE a la red normal) la vuelven
+        // a mandar a los pocos segundos. Eso es la MISMA llamada: se bloquea otra vez sin contarla doble.
+        if (last != null && now - last < RETRY_WINDOW_MS) {
+            Log.i(TAG, "Reintento de la red para $number: se bloquea de nuevo")
+            return true
+        }
+
+        // "Dejar pasar si insisten": solo cuenta si la persona colgó y volvió a marcar después.
+        if (prefs.allowRepeat && last != null && now - last <= REPEAT_WINDOW_MS) {
+            Log.i(TAG, "$number volvió a llamar: se deja pasar")
             return false
         }
 
@@ -70,6 +82,9 @@ class BlockerService : CallScreeningService() {
 
     companion object {
         private const val TAG = "BlockerService"
+        /** Reintentos automáticos de la red: llegan en segundos. */
+        const val RETRY_WINDOW_MS = 45 * 1000L
+        /** Ventana de "dejar pasar si insisten". */
         const val REPEAT_WINDOW_MS = 3 * 60 * 1000L // 3 minutos
     }
 }

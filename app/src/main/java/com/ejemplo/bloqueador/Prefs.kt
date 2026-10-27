@@ -29,9 +29,12 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_BLOCK_HIDDEN, true)
         set(v) = sp.edit().putBoolean(KEY_BLOCK_HIDDEN, v).apply()
 
-    /** Si el mismo número insiste dentro de la ventana de tiempo, se le deja pasar (posible urgencia). */
+    /**
+     * Si el mismo número vuelve a llamar dentro de la ventana de tiempo, se le deja pasar (posible urgencia).
+     * Apagado por defecto: se bloquea siempre.
+     */
     var allowRepeat: Boolean
-        get() = sp.getBoolean(KEY_ALLOW_REPEAT, true)
+        get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
     fun blockedCalls(): List<BlockedCall> = readArray(KEY_LOG).map {
@@ -46,13 +49,11 @@ class Prefs(context: Context) {
 
     fun clearLog() = sp.edit().remove(KEY_LOG).apply()
 
-    /**
-     * Devuelve true si este número ya fue bloqueado hace menos de [windowMs].
-     * Se usa para dejar pasar el segundo intento seguido.
-     */
-    fun recentlyBlocked(number: String, now: Long, windowMs: Long): Boolean {
+    /** Cuándo se bloqueó por última vez este número (null si nunca). */
+    fun lastBlockedAt(number: String): Long? {
         val key = normalize(number)
-        return blockedCalls().any { normalize(it.number) == key && now - it.timestamp <= windowMs }
+        return blockedCalls().filter { normalize(it.number) == key || it.number == number }
+            .maxOfOrNull { it.timestamp }
     }
 
     // ---------- Mensajes (SMS) ----------

@@ -133,7 +133,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                 Separador()
                 FilaInterruptor(
                     Icons.Filled.Repeat, "Dejar pasar si insisten",
-                    "Si vuelven a llamar en menos de 3 minutos, sonará. Útil para urgencias.",
+                    "Si cuelgan y vuelven a marcar en menos de 3 minutos, sonará. Útil para urgencias.",
                     insisten, habilitado = llamadasActivo
                 ) { insisten = it; prefs.allowRepeat = it }
             }
