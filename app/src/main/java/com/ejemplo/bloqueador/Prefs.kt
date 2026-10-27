@@ -13,6 +13,11 @@ class Prefs(context: Context) {
 
     private val sp = context.getSharedPreferences("bloqueador", Context.MODE_PRIVATE)
 
+    /** Ya se mostró la pantalla de bienvenida. */
+    var bienvenidaVista: Boolean
+        get() = sp.getBoolean(KEY_BIENVENIDA, false)
+        set(v) = sp.edit().putBoolean(KEY_BIENVENIDA, v).apply()
+
     // ---------- Llamadas ----------
 
     var enabled: Boolean
@@ -96,6 +101,7 @@ class Prefs(context: Context) {
     }
 
     companion object {
+        private const val KEY_BIENVENIDA = "bienvenida_vista"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_BLOCK_HIDDEN = "block_hidden"
         private const val KEY_ALLOW_REPEAT = "allow_repeat"

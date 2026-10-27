@@ -11,15 +11,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,21 +56,24 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit) {
 
     var filtro by rememberSaveable { mutableIntStateOf(0) }
 
-    Column(Modifier.fillMaxSize()) {
-        Titulo("Mensajes") {
-            IconButton(onClick = { Acciones.nuevoMensaje(context) }) {
-                Icon(Icons.Default.Create, contentDescription = "Nuevo mensaje")
-            }
-        }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            val sinLeer = hilos?.sumOf { it.unread } ?: 0
+            Titulo("Mensajes", subtitulo = if (sinLeer > 0) "$sinLeer sin leer" else null)
 
-        if (!tienePermiso) {
-            PermisoFaltante("Permite leer SMS para ver tus mensajes aquí.", pedirPermisos)
-        } else {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Todos", "No leídos", "Desconocidos").forEachIndexed { i, t ->
-                    FilterChip(selected = filtro == i, onClick = { filtro = i }, label = { Text(t) })
-                }
+            if (!tienePermiso) {
+                PermisoFaltante(
+                    Icons.Filled.Sms,
+                    "Tus mensajes aparecerán aquí",
+                    "Permite leer SMS para ver tus conversaciones.",
+                    pedirPermisos
+                )
+                return@Column
             }
+
+            Filtros(listOf("Todos", "Sin leer", "Desconocidos"), filtro) { filtro = it }
+            Spacer(Modifier.height(Esp.s))
+
             val lista = hilos
             if (lista == null) {
                 Cargando()
@@ -76,9 +86,13 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit) {
                     }
                 }
                 if (visibles.isEmpty()) {
-                    TextoVacio("No hay mensajes aquí.")
+                    when (filtro) {
+                        1 -> EstadoVacio(Icons.Filled.MarkEmailRead, "Todo leído", "No tienes mensajes pendientes.")
+                        2 -> EstadoVacio(Icons.Filled.Sms, "Sin desconocidos", "Ningún número desconocido te ha escrito.")
+                        else -> EstadoVacio(Icons.Filled.Sms, "Aún no hay mensajes", "Tus conversaciones por SMS aparecerán aquí.")
+                    }
                 } else {
-                    LazyColumn(Modifier.fillMaxSize()) {
+                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(visibles, key = { it.threadId }) { h ->
                             FilaHilo(h, onClick = { abiertoId = h.threadId })
                         }
@@ -86,6 +100,33 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit) {
                 }
             }
         }
+
+        if (tienePermiso) {
+            ExtendedFloatingActionButton(
+                onClick = { Acciones.nuevoMensaje(context) },
+                icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                text = { Text("Nuevo") },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(Esp.l)
+            )
+        }
+    }
+}
+
+/** Etiqueta pequeña "Desconocido" con ícono (no depende solo del color). */
+@Composable
+private fun EtiquetaDesconocido() {
+    Row(
+        Modifier.clip(CircleShape)
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = Esp.s, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Icon(
+            Icons.Filled.HelpOutline, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(14.dp)
+        )
+        Text("Desconocido", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
     }
 }
 
@@ -94,50 +135,45 @@ private fun FilaHilo(h: SmsThread, onClick: () -> Unit) {
     val titulo = h.name ?: h.address
     val noLeido = h.unread > 0
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable(onClickLabel = "Abrir conversación", onClick = onClick),
         leadingContent = { Avatar(titulo) },
         headlineContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
                 Text(
                     titulo,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (noLeido) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (h.name == null) {
-                    Text(
-                        "  Desconocido",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+                if (h.name == null) EtiquetaDesconocido()
             }
         },
         supportingContent = {
             Text(
                 (if (h.last.incoming) "" else "Tú: ") + h.last.body.replace('\n', ' '),
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
-                fontWeight = if (noLeido) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (noLeido) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (noLeido) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         trailingContent = {
-            Column(horizontalAlignment = Alignment.End) {
-                Text(fechaCorta(h.last.date), style = MaterialTheme.typography.labelSmall)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Esp.xs)) {
+                Text(
+                    fechaCorta(h.last.date),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (noLeido) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (noLeido) {
-                    Box(
-                        Modifier.padding(top = 4.dp).clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            h.unread.toString(),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.semantics { contentDescription = "${h.unread} sin leer" }
+                    ) { Text(h.unread.toString()) }
                 }
             }
-        }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
 }
 
@@ -149,25 +185,33 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit) {
         mensajes = withContext(Dispatchers.IO) { PhoneData.loadConversation(context, h.threadId) }
     }
     val titulo = h.name ?: h.address
+    val esNumero = esNumeroTelefono(h.address)
 
     Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onAtras) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás") }
-            Avatar(titulo, 36.dp)
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(titulo, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (h.name != null) Text(h.address, style = MaterialTheme.typography.bodySmall)
-            }
-            if (esNumeroTelefono(h.address)) {
-                IconButton(onClick = { Acciones.llamar(context, h.address) }) {
-                    Icon(Icons.Default.Call, contentDescription = "Llamar")
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = Esp.xs, vertical = Esp.s),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onAtras) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver a mensajes")
+                }
+                Avatar(titulo, 40.dp)
+                Column(Modifier.weight(1f).padding(start = Esp.m)) {
+                    Text(titulo, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (h.name != null) h.address else "No está en tus contactos",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (esNumero) {
+                    IconButton(onClick = { Acciones.llamar(context, h.address) }) {
+                        Icon(Icons.Filled.Call, contentDescription = "Llamar a $titulo", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
-        HorizontalDivider()
 
         val lista = mensajes
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -177,41 +221,56 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit) {
                 LazyColumn(
                     Modifier.fillMaxSize(),
                     reverseLayout = true, // empieza abajo, con el más reciente
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    contentPadding = PaddingValues(horizontal = Esp.m, vertical = Esp.l),
+                    verticalArrangement = Arrangement.spacedBy(Esp.s)
                 ) {
                     items(lista, key = { it.id }) { m -> Burbuja(m) }
                 }
             }
         }
 
-        Button(
-            onClick = { Acciones.mensaje(context, h.address) },
-            enabled = esNumeroTelefono(h.address),
-            modifier = Modifier.fillMaxWidth().padding(12.dp)
-        ) { Text("Responder") }
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+            Button(
+                onClick = { Acciones.mensaje(context, h.address) },
+                enabled = esNumero,
+                modifier = Modifier.fillMaxWidth().padding(Esp.m).heightIn(min = 52.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(Esp.s))
+                Text(if (esNumero) "Responder" else "No se puede responder a este remitente")
+            }
+        }
     }
 }
 
 @Composable
 private fun Burbuja(m: SmsMsg) {
     val propio = !m.incoming
+    val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start) {
         Column(
             Modifier.widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    if (propio) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 18.dp, topEnd = 18.dp,
+                        bottomStart = if (propio) 18.dp else 4.dp,
+                        bottomEnd = if (propio) 4.dp else 18.dp
+                    )
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .background(if (propio) cs.primary else cs.surfaceContainerHigh)
+                .padding(horizontal = Esp.m, vertical = Esp.s)
+                .semantics(mergeDescendants = true) { }
         ) {
-            Text(m.body)
             Text(
-                fechaCorta(m.date),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.End)
+                m.body,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (propio) cs.onPrimary else cs.onSurface
+            )
+            Text(
+                (if (propio) "Enviado · " else "") + fechaCorta(m.date),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (propio) cs.onPrimary.copy(alpha = 0.85f) else cs.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.End).padding(top = 2.dp)
             )
         }
     }

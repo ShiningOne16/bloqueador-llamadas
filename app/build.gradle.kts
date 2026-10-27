@@ -13,8 +13,8 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.1"
+        versionCode = 5
+        versionName = "1.3"
     }
 
     // Llave fija para que cada versión nueva se instale encima de la anterior.
@@ -37,7 +37,10 @@ android {
             signingConfig = signingConfigs.getByName("fija")
         }
         release {
-            isMinifyEnabled = false
+            // Quita el código e íconos que no se usan (el paquete de íconos completo es grande)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("fija")
         }
     }
@@ -64,7 +67,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
