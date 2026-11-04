@@ -2,6 +2,9 @@ package com.ejemplo.bloqueador
 
 import android.Manifest
 import android.provider.CallLog
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -38,13 +43,53 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     val context = LocalContext.current
     val tienePermiso = remember(refreshKey) { PhoneData.has(context, Manifest.permission.READ_CALL_LOG) }
     val pasosFaltantes = remember(refreshKey) { estadoConfig(context).faltan }
+    val archiveStore = remember { ArchiveStore(context) }
+    var archive by remember(refreshKey) { mutableStateOf(archiveStore.read()) }
+    var filtro by rememberSaveable { mutableIntStateOf(0) }
+    var recarga by remember { mutableIntStateOf(0) }
+    var deleteTarget by remember { mutableStateOf<CallGroup?>(null) }
+    var permissionTarget by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
+    var denied by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    var llamadas by remember { mutableStateOf<List<CallEntry>?>(null) }
-    LaunchedEffect(refreshKey, tienePermiso) {
-        if (tienePermiso) llamadas = withContext(Dispatchers.IO) { PhoneData.loadCalls(context) }
+    fun deleteConfirmed(calls: List<CallEntry>) {
+        if (calls.isEmpty() || busy) return
+        scope.launch {
+            busy = true
+            try {
+                val count = withContext(Dispatchers.IO) { PhoneData.deleteCalls(context, calls) }
+                archive = archiveStore.read().restoreCalls(calls.map { it.archiveKey() })
+                archiveStore.save(archive)
+                Toast.makeText(context, if (count == 0) "Estas llamadas ya no están en el registro" else "$count llamadas eliminadas", Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) { throw e
+            } catch (_: SecurityException) { denied = true
+            } catch (_: Exception) {
+                Toast.makeText(context, "No se pudo completar el borrado. Revisa el registro antes de intentarlo de nuevo.", Toast.LENGTH_LONG).show()
+            } finally { busy = false; recarga++ }
+        }
+    }
+    val requestWrite = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val calls = permissionTarget
+        permissionTarget = emptyList()
+        if (granted) deleteConfirmed(calls) else denied = true
     }
 
-    var filtro by rememberSaveable { mutableIntStateOf(0) }
+    var llamadas by remember { mutableStateOf<List<CallEntry>?>(null) }
+    LaunchedEffect(refreshKey, tienePermiso, recarga, filtro == 3) {
+        if (tienePermiso) {
+            loadError = false
+            llamadas = null
+            try {
+                llamadas = withContext(Dispatchers.IO) {
+                    PhoneData.loadCalls(context, onlyIds = if (filtro == 3) archive.calls.mapNotNull { it.substringBefore(':').toLongOrNull() }.toSet() else null)
+                }
+            } catch (e: CancellationException) { throw e
+            } catch (_: Exception) { loadError = true; llamadas = emptyList() }
+        }
+    }
+
     var busqueda by rememberSaveable { mutableStateOf("") }
     var seleccion by remember { mutableStateOf<CallEntry?>(null) }
 
@@ -64,18 +109,22 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
 
         Buscador(busqueda, { busqueda = it }, "Buscar en llamadas")
-        Filtros(listOf("Todas", "Perdidas", "Bloqueadas"), filtro) { filtro = it }
+        Filtros(listOf("Todas", "Perdidas", "Bloqueadas", "Archivadas"), filtro) { filtro = it }
+        if (filtro == 3) Text("Archivo local de Bloqueador. Puedes desarchivar desde el menú ⋮.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(Esp.s))
 
         val lista = llamadas
-        if (lista == null) {
+        if (loadError) {
+            EstadoVacio(Icons.Filled.History, "No se pudo cargar el registro", "Revisa el permiso de llamadas e inténtalo de nuevo.", accion = "Reintentar", onAccion = { recarga++ })
+        } else if (lista == null) {
             Cargando()
         } else {
-            val grupos = remember(lista, filtro, busqueda) {
+            val grupos = remember(lista, filtro, busqueda, archive) {
+                val bandeja = lista.filter { (it.archiveKey() in archive.calls) == (filtro == 3) }
                 val porFiltro = when (filtro) {
-                    1 -> lista.filter { it.isMissedLike }
-                    2 -> lista.filter { it.isBlockedLike }
-                    else -> lista
+                    1 -> bandeja.filter { it.isMissedLike }
+                    2 -> bandeja.filter { it.isBlockedLike }
+                    else -> bandeja
                 }
                 PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda) })
             }
@@ -92,6 +141,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                         when (filtro) {
                             1 -> "Sin llamadas perdidas"
                             2 -> "Sin llamadas bloqueadas"
+                            3 -> "Sin llamadas archivadas"
                             else -> "Aún no hay llamadas"
                         },
                         "Cuando haya llamadas, las verás aquí."
@@ -104,7 +154,15 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                             g,
                             onClick = { seleccion = g.latest },
                             onLlamar = { Acciones.llamar(context, g.latest.number) },
-                            onMensaje = { Acciones.mensaje(context, g.latest.number) }
+                            onMensaje = { Acciones.mensaje(context, g.latest.number) },
+                            archived = filtro == 3, enabled = !busy,
+                            onArchive = {
+                                val current = archiveStore.read()
+                                archive = if (filtro == 3) current.restoreCalls(g.entries.map { it.archiveKey() }) else current.archiveCalls(g.entries.map { it.archiveKey() })
+                                archiveStore.save(archive)
+                                recarga++
+                            },
+                            onDelete = { deleteTarget = g }
                         )
                     }
                 }
@@ -122,6 +180,22 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             onCerrar = { seleccion = null }
         )
     }
+    deleteTarget?.let { group ->
+        Confirmar("¿Eliminar ${group.entries.size} llamadas?",
+            "Se borrarán definitivamente estos registros del historial del teléfono, también en otras apps. No cambia el registro de bloqueos de Protección. No se puede deshacer.", "Eliminar",
+            onConfirmar = {
+                deleteTarget = null
+                if (PhoneData.has(context, Manifest.permission.WRITE_CALL_LOG)) deleteConfirmed(group.entries)
+                else { permissionTarget = group.entries; requestWrite.launch(Manifest.permission.WRITE_CALL_LOG) }
+            }, onCancelar = { deleteTarget = null })
+    }
+    if (denied) AlertDialog(onDismissRequest = { denied = false }, title = { Text("No se autorizó el borrado") },
+        text = { Text("Android no permite a Bloqueador borrar llamadas sin el permiso de escritura del registro. Puedes revisar sus permisos o borrar desde tu app de teléfono.") },
+        confirmButton = { TextButton(onClick = {
+            denied = false
+            if (!Acciones.manageCallLog(context)) Toast.makeText(context, "Abre tu app de teléfono para borrar el registro.", Toast.LENGTH_LONG).show()
+        }) { Text("Abrir Teléfono") } },
+        dismissButton = { TextButton(onClick = { denied = false; Acciones.ajustesDeLaApp(context) }) { Text("Revisar permisos") } })
 }
 
 /** Banda ámbar que lleva a terminar la configuración. */
@@ -188,7 +262,8 @@ private fun coincideBusqueda(c: CallEntry, q: String): Boolean {
 }
 
 @Composable
-private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit) {
+private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit,
+    archived: Boolean, enabled: Boolean, onArchive: () -> Unit, onDelete: () -> Unit) {
     val c = g.latest
     val titulo = c.name ?: c.number.ifBlank { "Número oculto" }
     val alerta = tipoVista(c.type).alerta
@@ -211,10 +286,13 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit,
         },
         supportingContent = { LineaTipo(c, if (g.count > 1) "${g.count} veces" else null) },
         trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
             if (c.number.isNotBlank()) {
                 IconButton(onClick = onLlamar) {
                     Icon(Icons.Filled.Call, contentDescription = "Llamar a $titulo", tint = MaterialTheme.colorScheme.primary)
                 }
+            }
+                HistoryMenu(archived, "$titulo (${g.count} llamadas)", enabled, onArchive, onDelete)
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -271,3 +349,4 @@ fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCe
         }
     }
 }
+

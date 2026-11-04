@@ -1,6 +1,7 @@
 package com.ejemplo.bloqueador
 
 import android.Manifest
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,34 +32,71 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 @Composable
 fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit) {
     val context = LocalContext.current
     val tienePermiso = remember(refreshKey) { PhoneData.has(context, Manifest.permission.READ_SMS) }
+    val archiveStore = remember { ArchiveStore(context) }
+    var archive by remember(refreshKey) { mutableStateOf(archiveStore.read()) }
+    var filtro by rememberSaveable { mutableIntStateOf(0) }
+    var recarga by remember { mutableIntStateOf(0) }
+    var deleteThread by remember { mutableStateOf<SmsThread?>(null) }
+    var abiertoId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var loadError by remember { mutableStateOf(false) }
 
     var hilos by remember { mutableStateOf<List<SmsThread>?>(null) }
-    LaunchedEffect(refreshKey, tienePermiso) {
-        if (tienePermiso) hilos = withContext(Dispatchers.IO) {
-            PhoneData.loadThreads(context, PhoneData.nameIndex(PhoneData.loadContacts(context)))
+    LaunchedEffect(refreshKey, tienePermiso, recarga, filtro == 3) {
+        if (tienePermiso) {
+            loadError = false
+            hilos = null
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    PhoneData.loadThreads(context, PhoneData.nameIndex(PhoneData.loadContacts(context)),
+                        onlyIds = if (filtro == 3) archive.sms.mapNotNull { it.substringBefore(':').toLongOrNull() }.toSet() else null)
+                }
+                var current = archiveStore.read()
+                loaded.forEach { current = current.refreshThread(it.threadId, it.archiveKey()) }
+                archive = current
+                archiveStore.save(current)
+                hilos = loaded
+            } catch (e: CancellationException) { throw e
+            } catch (_: Exception) { loadError = true; hilos = emptyList() }
         }
     }
 
-    var abiertoId by rememberSaveable { mutableStateOf<Long?>(null) }
+    fun toggleArchive(thread: SmsThread) {
+        val current = archiveStore.read()
+        archive = if (thread.archiveKey() in current.sms) current.restoreThread(thread.threadId)
+        else current.archiveThread(thread.threadId, thread.archiveKey())
+        archiveStore.save(archive)
+        abiertoId = null
+        recarga++
+    }
+    deleteThread?.let { thread ->
+        AlertDialog(onDismissRequest = { deleteThread = null }, title = { Text("Eliminar conversación de SMS") },
+            text = { Text("Android solo permite borrar SMS a tu app de mensajes predeterminada. Abre la conversación con ${thread.name ?: thread.address} y usa allí Eliminar. Abrirla no borra mensajes desde Bloqueador.") },
+            confirmButton = { TextButton(onClick = {
+                if (Acciones.manageSms(context, thread.address)) deleteThread = null
+                else Toast.makeText(context, "No se pudo abrir la app de SMS. Ábrela desde tu teléfono para eliminar la conversación.", Toast.LENGTH_LONG).show()
+            }) { Text("Abrir app SMS") } },
+            dismissButton = { TextButton(onClick = { deleteThread = null }) { Text("Cancelar") } })
+    }
     val abierto = hilos?.firstOrNull { it.threadId == abiertoId }
 
     if (abierto != null) {
         BackHandler { abiertoId = null }
-        Conversacion(abierto, refreshKey, onAtras = { abiertoId = null })
+        Conversacion(abierto, refreshKey, onAtras = { abiertoId = null },
+            archived = abierto.archiveKey() in archive.sms,
+            onArchive = { toggleArchive(abierto) }, onDelete = { deleteThread = abierto })
         return
     }
 
-    var filtro by rememberSaveable { mutableIntStateOf(0) }
-
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            val sinLeer = hilos?.sumOf { it.unread } ?: 0
+            val sinLeer = hilos?.filter { it.archiveKey() !in archive.sms }?.sumOf { it.unread } ?: 0
             Titulo("Mensajes", subtitulo = if (sinLeer > 0) "$sinLeer sin leer" else null)
 
             if (!tienePermiso) {
@@ -71,30 +109,36 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit) {
                 return@Column
             }
 
-            Filtros(listOf("Todos", "Sin leer", "Desconocidos"), filtro) { filtro = it }
+            Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
+            if (filtro == 3) Text("Archivo local. Un SMS nuevo devuelve la conversación a la bandeja.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(Esp.s))
 
             val lista = hilos
-            if (lista == null) {
+            if (loadError) {
+                EstadoVacio(Icons.Filled.Sms, "No se pudieron cargar los mensajes", "Revisa el permiso de SMS e inténtalo de nuevo.", accion = "Reintentar", onAccion = { recarga++ })
+            } else if (lista == null) {
                 Cargando()
             } else {
-                val visibles = remember(lista, filtro) {
+                val visibles = remember(lista, filtro, archive) {
+                    val bandeja = lista.filter { (it.archiveKey() in archive.sms) == (filtro == 3) }
                     when (filtro) {
-                        1 -> lista.filter { it.unread > 0 }
-                        2 -> lista.filter { it.name == null }
-                        else -> lista
+                        1 -> bandeja.filter { it.unread > 0 }
+                        2 -> bandeja.filter { it.name == null }
+                        else -> bandeja
                     }
                 }
                 if (visibles.isEmpty()) {
                     when (filtro) {
                         1 -> EstadoVacio(Icons.Filled.MarkEmailRead, "Todo leído", "No tienes mensajes pendientes.")
                         2 -> EstadoVacio(Icons.Filled.Sms, "Sin desconocidos", "Ningún número desconocido te ha escrito.")
+                        3 -> EstadoVacio(Icons.Filled.Sms, "Sin conversaciones archivadas", "Usa el menú ⋮ de una conversación para archivarla.")
                         else -> EstadoVacio(Icons.Filled.Sms, "Aún no hay mensajes", "Tus conversaciones por SMS aparecerán aquí.")
                     }
                 } else {
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(visibles, key = { it.threadId }) { h ->
-                            FilaHilo(h, onClick = { abiertoId = h.threadId })
+                            FilaHilo(h, onClick = { abiertoId = h.threadId }, archived = filtro == 3,
+                                onArchive = { toggleArchive(h) }, onDelete = { deleteThread = h })
                         }
                     }
                 }
@@ -131,7 +175,7 @@ private fun EtiquetaDesconocido() {
 }
 
 @Composable
-private fun FilaHilo(h: SmsThread, onClick: () -> Unit) {
+private fun FilaHilo(h: SmsThread, onClick: () -> Unit, archived: Boolean, onArchive: () -> Unit, onDelete: () -> Unit) {
     val titulo = h.name ?: h.address
     val noLeido = h.unread > 0
     ListItem(
@@ -158,6 +202,7 @@ private fun FilaHilo(h: SmsThread, onClick: () -> Unit) {
             )
         },
         trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Esp.xs)) {
                 Text(
                     fechaCorta(h.last.date),
@@ -172,13 +217,15 @@ private fun FilaHilo(h: SmsThread, onClick: () -> Unit) {
                     ) { Text(h.unread.toString()) }
                 }
             }
+                HistoryMenu(archived, titulo, onArchive = onArchive, onDelete = onDelete)
+            }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
 }
 
 @Composable
-private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit) {
+private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, archived: Boolean, onArchive: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     var mensajes by remember { mutableStateOf<List<SmsMsg>?>(null) }
     LaunchedEffect(h.threadId, refreshKey) {
@@ -210,6 +257,7 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit) {
                         Icon(Icons.Filled.Call, contentDescription = "Llamar a $titulo", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
+                HistoryMenu(archived, titulo, onArchive = onArchive, onDelete = onDelete)
             }
         }
 
@@ -275,3 +323,4 @@ private fun Burbuja(m: SmsMsg) {
         }
     }
 }
+

@@ -22,7 +22,7 @@ data class CallEntry(
 }
 
 /** Varias llamadas seguidas del mismo número y tipo se muestran como una sola fila. */
-data class CallGroup(val latest: CallEntry, val count: Int)
+data class CallGroup(val latest: CallEntry, val count: Int, val entries: List<CallEntry> = listOf(latest))
 
 data class ContactEntry(
     val id: Long,
@@ -74,8 +74,9 @@ object PhoneData {
 
     // ---------------- Registro de llamadas ----------------
 
-    fun loadCalls(context: Context, limit: Int = 500): List<CallEntry> {
+    fun loadCalls(context: Context, limit: Int = 500, onlyIds: Set<Long>? = null): List<CallEntry> {
         if (!has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
+        if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val out = ArrayList<CallEntry>()
         val projection = arrayOf(
             CallLog.Calls._ID,
@@ -86,9 +87,10 @@ object PhoneData {
             CallLog.Calls.DURATION
         )
         context.contentResolver.query(
-            CallLog.Calls.CONTENT_URI, projection, null, null, "${CallLog.Calls.DATE} DESC"
+            CallLog.Calls.CONTENT_URI, projection,
+            onlyIds?.let { "${CallLog.Calls._ID} IN (${it.joinToString(",")})" }, null, "${CallLog.Calls.DATE} DESC"
         )?.use { c ->
-            while (c.moveToNext() && out.size < limit) {
+            while (c.moveToNext() && (onlyIds != null || out.size < limit)) {
                 out += CallEntry(
                     id = c.getLong(0),
                     number = c.getString(1).orEmpty(),
@@ -118,12 +120,24 @@ object PhoneData {
                 Prefs.normalize(prev.latest.number) == Prefs.normalize(call.number) &&
                 prev.latest.type == call.type
             ) {
-                out[out.lastIndex] = prev.copy(count = prev.count + 1)
+                out[out.lastIndex] = prev.copy(count = prev.count + 1, entries = prev.entries + call)
             } else {
                 out += CallGroup(call, 1)
             }
         }
         return out
+    }
+
+    /** Elimina solo los registros confirmados, sin incluir llamadas nuevas del mismo número. */
+    fun deleteCalls(context: Context, calls: List<CallEntry>): Int {
+        check(has(context, Manifest.permission.WRITE_CALL_LOG)) { "Falta permiso para borrar llamadas" }
+        if (calls.isEmpty()) return 0
+        val operations = calls.distinctBy { it.id }.map { call ->
+            android.content.ContentProviderOperation.newDelete(CallLog.Calls.CONTENT_URI)
+                .withSelection("${CallLog.Calls._ID} = ? AND ${CallLog.Calls.DATE} = ?", arrayOf(call.id.toString(), call.date.toString()))
+                .build()
+        }
+        return context.contentResolver.applyBatch(CallLog.AUTHORITY, ArrayList(operations)).sumOf { it.count ?: 0 }
     }
 
     // ---------------- Contactos ----------------
@@ -195,14 +209,16 @@ object PhoneData {
         read = c.getInt(6) == 1
     )
 
-    fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000): List<SmsThread> {
+    fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000, onlyIds: Set<Long>? = null): List<SmsThread> {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
+        if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val threads = LinkedHashMap<Long, SmsThread>()
         context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI, SMS_PROJECTION, null, null, "${Telephony.Sms.DATE} DESC"
+            Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
+            onlyIds?.let { "${Telephony.Sms.THREAD_ID} IN (${it.joinToString(",")})" }, null, "${Telephony.Sms.DATE} DESC"
         )?.use { c ->
             var rows = 0
-            while (c.moveToNext() && rows++ < maxRows) {
+            while (c.moveToNext() && (onlyIds != null || rows++ < maxRows)) {
                 val msg = readSms(c)
                 val unread = if (msg.incoming && !msg.read) 1 else 0
                 val t = threads[msg.threadId]
@@ -239,6 +255,18 @@ object PhoneData {
 
 /** Acciones que abren el marcador, la app de SMS o Contactos del sistema. */
 object Acciones {
+
+    /** El borrado de SMS se completa en la app de SMS predeterminada de Android. */
+    fun manageSms(context: Context, address: String): Boolean {
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", address, null))
+        Telephony.Sms.getDefaultSmsPackage(context)?.let { intent.setPackage(it) }
+        return try { context.startActivity(intent); true } catch (_: Exception) { false }
+    }
+
+    fun manageCallLog(context: Context): Boolean = try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI))
+        true
+    } catch (_: Exception) { false }
 
     fun llamar(context: Context, number: String) {
         if (number.isBlank()) return
@@ -283,3 +311,4 @@ object Acciones {
         }
     }
 }
+
