@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -109,18 +108,25 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item {
-                ProfileChoice("Protección básica", "Usar los ajustes de la pestaña Protección",
-                    configuration.activeProfileId == null) { save(configuration.copy(activeProfileId = null)) }
-            }
-            items(configuration.profiles, key = { it.id }) { profile ->
+                // Una sola lista: protección básica y cada perfil, con editar y eliminar en su fila.
                 Tarjeta {
-                    ProfileChoice(profile.name, scheduleDescription(profile.schedule) + "\n${profile.scheduledContacts.size} números de agenda por horario · ${profile.exceptions.size} excepciones",
-                        configuration.activeProfileId == profile.id) { save(configuration.copy(activeProfileId = profile.id)) }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = Esp.s), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { editing = profile }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Editar") }
-                        IconButton(onClick = { deleting = profile }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar perfil ${profile.name}")
-                        }
+                    ProfileChoice("Protección básica", "Usar los ajustes de la pestaña Protección",
+                        configuration.activeProfileId == null) { save(configuration.copy(activeProfileId = null)) }
+                    configuration.profiles.forEach { profile ->
+                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                        ProfileChoice(
+                            profile.name,
+                            scheduleDescription(profile.schedule) + "\n${profile.scheduledContacts.size} números de agenda por horario · ${profile.exceptions.size} excepciones",
+                            configuration.activeProfileId == profile.id,
+                            trailing = {
+                                IconButton(onClick = { editing = profile }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Editar perfil ${profile.name}")
+                                }
+                                IconButton(onClick = { deleting = profile }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar perfil ${profile.name}")
+                                }
+                            }
+                        ) { save(configuration.copy(activeProfileId = profile.id)) }
                     }
                 }
             }
@@ -161,17 +167,23 @@ private fun PremiumHeader(title: String, onClose: () -> Unit) {
 }
 
 @Composable
-private fun ProfileChoice(title: String, description: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().selectable(selected, role = Role.RadioButton, onClick = onClick).padding(Esp.m),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Esp.m)
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ProfileChoice(
+    title: String, description: String, selected: Boolean,
+    trailing: @Composable RowScope.() -> Unit = {}, onClick: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth().padding(end = Esp.xs), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f).selectable(selected, role = Role.RadioButton, onClick = onClick).padding(Esp.m),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Esp.m)
+        ) {
+            RadioButton(selected = selected, onClick = null)
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
+        trailing()
     }
 }
 
