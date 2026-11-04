@@ -24,6 +24,7 @@ class SmsNotificationListener : NotificationListenerService() {
     }
 
     private fun handle(sbn: StatusBarNotification) {
+        if (sbn.packageName == packageName) return // Los avisos propios se deciden antes de publicarse.
         if (!isSmsApp(sbn.packageName)) return
 
         val prefs = Prefs(this)

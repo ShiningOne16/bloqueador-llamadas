@@ -43,7 +43,9 @@ data class SmsMsg(
     val body: String,
     val date: Long,
     val incoming: Boolean,
-    val read: Boolean
+    val read: Boolean,
+    val type: Int = if (incoming) Telephony.Sms.MESSAGE_TYPE_INBOX else Telephony.Sms.MESSAGE_TYPE_SENT,
+    val subscriptionId: Int = -1
 )
 
 data class SmsThread(
@@ -196,7 +198,8 @@ object PhoneData {
         Telephony.Sms.BODY,
         Telephony.Sms.DATE,
         Telephony.Sms.TYPE,
-        Telephony.Sms.READ
+        Telephony.Sms.READ,
+        Telephony.Sms.SUBSCRIPTION_ID
     )
 
     private fun readSms(c: android.database.Cursor) = SmsMsg(
@@ -206,7 +209,9 @@ object PhoneData {
         body = c.getString(3).orEmpty(),
         date = c.getLong(4),
         incoming = c.getInt(5) == Telephony.Sms.MESSAGE_TYPE_INBOX,
-        read = c.getInt(6) == 1
+        read = c.getInt(6) == 1,
+        type = c.getInt(5),
+        subscriptionId = c.getInt(7)
     )
 
     fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000, onlyIds: Set<Long>? = null): List<SmsThread> {
@@ -276,11 +281,11 @@ object Acciones {
     }
 
     fun mensaje(context: Context, number: String) {
-        abrir(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(number)}")))
+        abrir(context, Intent(context, MainActivity::class.java).setAction(Intent.ACTION_SENDTO).setData(Uri.fromParts("smsto", number, null)))
     }
 
     fun nuevoMensaje(context: Context) {
-        abrir(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")))
+        abrir(context, Intent(context, MainActivity::class.java).setAction(Intent.ACTION_SENDTO).setData(Uri.parse("smsto:")))
     }
 
     fun nuevoContacto(context: Context, number: String? = null) {

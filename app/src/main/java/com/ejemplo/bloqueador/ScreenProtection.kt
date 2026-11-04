@@ -49,7 +49,7 @@ fun estadoConfig(context: Context): EstadoConfig {
     return EstadoConfig(
         permisos = PhoneData.missing(context).isEmpty(),
         filtroLlamadas = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING),
-        accesoNotificaciones = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        accesoNotificaciones = SmsRepository.isDefault(context) || NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     )
 }
 
