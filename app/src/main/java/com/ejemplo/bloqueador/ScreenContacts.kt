@@ -106,6 +106,8 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit, soloFavoritos:
         if (tienePermiso) {
             FloatingActionButton(
                 onClick = { abrirFormulario(PeticionFormulario()) },
+                containerColor = LocalColoresExtra.current.marca,
+                contentColor = LocalColoresExtra.current.onMarca,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Esp.l)
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Crear contacto")

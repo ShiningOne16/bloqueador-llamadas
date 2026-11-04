@@ -38,6 +38,7 @@ private enum class VistaTelefono(val titulo: String, val icono: ImageVector) {
 fun PantallaTelefono(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion: () -> Unit) {
     var vista by rememberSaveable { mutableStateOf(VistaTelefono.RECIENTES) }
     val pantallas = rememberSaveableStateHolder()
+    val extra = LocalColoresExtra.current
 
     BackHandler(enabled = vista != VistaTelefono.RECIENTES) { vista = VistaTelefono.RECIENTES }
 
@@ -101,8 +102,8 @@ fun PantallaTelefono(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion: 
 
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                color = extra.marca,
+                contentColor = extra.onMarca,
                 shadowElevation = 4.dp,
                 modifier = Modifier.widthIn(min = 72.dp).heightIn(min = 64.dp).clip(RoundedCornerShape(24.dp))
                     .selectable(selected = vista == VistaTelefono.MARCAR, role = Role.Tab, onClick = {

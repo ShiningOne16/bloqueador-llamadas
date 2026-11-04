@@ -144,10 +144,12 @@ Para desactivarla temporalmente, usa el interruptor "Bloquear desconocidos".
 
 ## Diseño
 
-Rediseñado con la skill UI/UX Pro Max: estilo minimalista, azul de seguridad y verde de "protegido",
-modo claro y oscuro con contraste mínimo 4.5:1, íconos vectoriales con texto, botones de al menos 48 dp,
-bienvenida que explica los permisos antes de pedirlos y confirmación antes de borrar.
-Colores, letra y espaciado están en `Theme.kt`.
+Rediseñado con la skill UI/UX Pro Max: estilo minimalista con paleta de fondo blanco (`#FFFFFF`),
+azul `#4C98E9`, negro azulado `#0F1319` y gris `#555E69`, y verde de "protegido".
+Modo claro y oscuro con contraste mínimo 4.5:1: sobre el azul `#4C98E9` el texto es oscuro (el blanco
+solo daría 3:1) y, en modo claro, los textos e íconos azules usan un tono más profundo del mismo matiz.
+Íconos vectoriales con texto, botones de al menos 48 dp, bienvenida que explica los permisos antes
+de pedirlos y confirmación antes de borrar. Colores, letra y espaciado están en `Theme.kt`.
 
 ## Estructura
 - `BlockerService.kt` – decide si cada llamada entrante pasa o se rechaza.

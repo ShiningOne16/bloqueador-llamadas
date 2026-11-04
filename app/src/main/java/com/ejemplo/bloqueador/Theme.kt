@@ -13,20 +13,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /*
- * Sistema de diseño "Bloqueador" (generado con UI/UX Pro Max):
- * estilo minimalista, azul de seguridad + verde de protegido.
- * Todos los pares texto/fondo cumplen contraste ≥ 4.5:1 en claro y oscuro.
+ * Sistema de diseño "Bloqueador". Paleta base: blanco #FFFFFF, azul #4C98E9, negro azulado #0F1319
+ * y gris #555E69 (estilo red social: fondo blanco, texto casi negro, acento azul).
+ *
+ * Contraste (WCAG): el texto blanco sobre #4C98E9 solo da 3.0:1, así que sobre ese azul se usa
+ * texto #0F1319 (6.2:1). En modo claro, el azul para textos e íconos pequeños es un tono más
+ * profundo del mismo matiz (5.0:1 sobre blanco); en modo oscuro #4C98E9 sí cumple (6.2:1).
+ * Todos los pares texto/fondo cumplen ≥ 4.5:1 en claro y oscuro.
  */
 
 private val Claro = lightColorScheme(
-    primary = Color(0xFF0369A1),
+    primary = Color(0xFF1F6FC8),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFE0F2FE),
-    onPrimaryContainer = Color(0xFF0C4A6E),
-    secondary = Color(0xFF0369A1),
+    primaryContainer = Color(0xFFDCEBFC),
+    onPrimaryContainer = Color(0xFF0B3A73),
+    secondary = Color(0xFF1F6FC8),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE0F2FE),
-    onSecondaryContainer = Color(0xFF0C4A6E),
+    secondaryContainer = Color(0xFFDCEBFC),
+    onSecondaryContainer = Color(0xFF0B3A73),
     tertiary = Color(0xFF15803D),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFDCFCE7),
@@ -35,30 +39,30 @@ private val Claro = lightColorScheme(
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFFEE2E2),
     onErrorContainer = Color(0xFF7F1D1D),
-    background = Color(0xFFF0F9FF),
-    onBackground = Color(0xFF0C4A6E),
-    surface = Color(0xFFF0F9FF),
-    onSurface = Color(0xFF0C4A6E),
-    surfaceVariant = Color(0xFFE7EFF5),
-    onSurfaceVariant = Color(0xFF475569),
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0F1319),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF0F1319),
+    surfaceVariant = Color(0xFFEFF3F4),
+    onSurfaceVariant = Color(0xFF555E69),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFFFFFF),
-    surfaceContainer = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFE7EFF5),
-    surfaceContainerHighest = Color(0xFFDDE7EF),
-    outline = Color(0xFF64748B),
-    outlineVariant = Color(0xFFBAE6FD),
+    surfaceContainerLow = Color(0xFFF7F9F9),
+    surfaceContainer = Color(0xFFF7F9F9),
+    surfaceContainerHigh = Color(0xFFEFF3F4),
+    surfaceContainerHighest = Color(0xFFE1E8ED),
+    outline = Color(0xFF7A848F),
+    outlineVariant = Color(0xFFE1E8ED),
 )
 
 private val Oscuro = darkColorScheme(
-    primary = Color(0xFF7DD3FC),
-    onPrimary = Color(0xFF082F49),
-    primaryContainer = Color(0xFF0C4A6E),
-    onPrimaryContainer = Color(0xFFE0F2FE),
-    secondary = Color(0xFF7DD3FC),
-    onSecondary = Color(0xFF082F49),
-    secondaryContainer = Color(0xFF0C4A6E),
-    onSecondaryContainer = Color(0xFFE0F2FE),
+    primary = Color(0xFF4C98E9),
+    onPrimary = Color(0xFF0F1319),
+    primaryContainer = Color(0xFF17407A),
+    onPrimaryContainer = Color(0xFFDCEBFC),
+    secondary = Color(0xFF4C98E9),
+    onSecondary = Color(0xFF0F1319),
+    secondaryContainer = Color(0xFF17407A),
+    onSecondaryContainer = Color(0xFFDCEBFC),
     tertiary = Color(0xFF4ADE80),
     onTertiary = Color(0xFF052E16),
     tertiaryContainer = Color(0xFF14532D),
@@ -67,32 +71,38 @@ private val Oscuro = darkColorScheme(
     onError = Color(0xFF450A0A),
     errorContainer = Color(0xFF7F1D1D),
     onErrorContainer = Color(0xFFFEE2E2),
-    background = Color(0xFF0B1220),
-    onBackground = Color(0xFFE2E8F0),
-    surface = Color(0xFF0B1220),
-    onSurface = Color(0xFFE2E8F0),
-    surfaceVariant = Color(0xFF1E293B),
-    onSurfaceVariant = Color(0xFF94A3B8),
-    surfaceContainerLowest = Color(0xFF131C2E),
-    surfaceContainerLow = Color(0xFF131C2E),
-    surfaceContainer = Color(0xFF131C2E),
-    surfaceContainerHigh = Color(0xFF1E293B),
-    surfaceContainerHighest = Color(0xFF273449),
-    outline = Color(0xFF94A3B8),
-    outlineVariant = Color(0xFF334155),
+    background = Color(0xFF0F1319),
+    onBackground = Color(0xFFE7E9EA),
+    surface = Color(0xFF0F1319),
+    onSurface = Color(0xFFE7E9EA),
+    surfaceVariant = Color(0xFF1D242D),
+    onSurfaceVariant = Color(0xFF9AA4B0),
+    surfaceContainerLowest = Color(0xFF151B23),
+    surfaceContainerLow = Color(0xFF151B23),
+    surfaceContainer = Color(0xFF151B23),
+    surfaceContainerHigh = Color(0xFF1D242D),
+    surfaceContainerHighest = Color(0xFF262E38),
+    outline = Color(0xFF7D8794),
+    outlineVariant = Color(0xFF2B333D),
 )
 
-/** Colores extra que Material no trae: aviso (ámbar) y botón de llamar (verde). */
+/** Colores extra que Material no trae: aviso (ámbar), botón de llamar (verde) y azul de marca. */
 @Immutable
 data class ColoresExtra(
     val aviso: Color,
     val onAviso: Color,
     val llamar: Color,
     val onLlamar: Color,
+    /** Azul exacto de la paleta (#4C98E9) para botones principales; su texto es oscuro por contraste. */
+    val marca: Color,
+    val onMarca: Color,
 )
 
-private val ExtraClaro = ColoresExtra(Color(0xFFFEF3C7), Color(0xFF78350F), Color(0xFF15803D), Color.White)
-private val ExtraOscuro = ColoresExtra(Color(0xFF78350F), Color(0xFFFDE68A), Color(0xFF15803D), Color.White)
+private val AzulMarca = Color(0xFF4C98E9)
+private val NegroAzulado = Color(0xFF0F1319)
+
+private val ExtraClaro = ColoresExtra(Color(0xFFFEF3C7), Color(0xFF78350F), Color(0xFF15803D), Color.White, AzulMarca, NegroAzulado)
+private val ExtraOscuro = ColoresExtra(Color(0xFF78350F), Color(0xFFFDE68A), Color(0xFF15803D), Color.White, AzulMarca, NegroAzulado)
 
 val LocalColoresExtra = staticCompositionLocalOf { ExtraClaro }
 

@@ -190,6 +190,8 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 onClick = { composeAddress = ""; composeBody = "" },
                 icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                 text = { Text("Nuevo") },
+                containerColor = LocalColoresExtra.current.marca,
+                contentColor = LocalColoresExtra.current.onMarca,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Esp.l)
             )
         }
