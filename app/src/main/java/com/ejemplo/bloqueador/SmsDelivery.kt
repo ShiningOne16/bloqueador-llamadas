@@ -156,8 +156,8 @@ class SmsSentReceiver : BroadcastReceiver() {
         val pending = goAsync()
         thread(name = "sms-sent-result") {
             try {
-                if (!SmsRepository.isDefault(context)) return@thread
                 val result = SmsJournal(context).use { it.record(token, part, sentResult) } ?: return@thread
+                if (!SmsRepository.isDefault(context)) return@thread // Conserva el callback, pero no escribe sin el rol.
                 if (result.state != "pending") {
                     val count = context.contentResolver.update(Uri.parse(result.uri), ContentValues().apply {
                         put(Telephony.Sms.TYPE, if (result.state == "sent") Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)

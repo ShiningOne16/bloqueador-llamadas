@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper
 data class SmsSendResult(val uri: String, val state: String, val date: Long)
 
 /** Confirmaciones de multipartes duraderas: los callbacks sobreviven al cierre de la interfaz. */
-class SmsJournal(context: Context) : SQLiteOpenHelper(context, "sms_sending.db", null, 2) {
+class SmsJournal(context: Context) : SQLiteOpenHelper(context.createDeviceProtectedStorageContext(), "sms_sending.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE sends(token TEXT PRIMARY KEY, uri TEXT NOT NULL, parts INTEGER NOT NULL, created INTEGER NOT NULL, state TEXT NOT NULL)")
         db.execSQL("CREATE TABLE results(token TEXT NOT NULL, part INTEGER NOT NULL, result INTEGER NOT NULL, PRIMARY KEY(token,part))")
