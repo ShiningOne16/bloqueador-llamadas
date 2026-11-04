@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.time.LocalDateTime
 import java.util.UUID
@@ -116,14 +117,26 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
                         ProfileChoice(
                             profile.name,
-                            scheduleDescription(profile.schedule) + "\n${profile.scheduledContacts.size} números de agenda por horario · ${profile.exceptions.size} excepciones",
+                            resumenPerfil(profile),
                             configuration.activeProfileId == profile.id,
                             trailing = {
-                                IconButton(onClick = { editing = profile }) {
-                                    Icon(Icons.Filled.Edit, contentDescription = "Editar perfil ${profile.name}")
-                                }
-                                IconButton(onClick = { deleting = profile }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar perfil ${profile.name}")
+                                var menu by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { menu = true }) {
+                                        Icon(Icons.Filled.MoreVert, contentDescription = "Opciones del perfil ${profile.name}")
+                                    }
+                                    DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("Editar") },
+                                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                            onClick = { menu = false; editing = profile }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                            onClick = { menu = false; deleting = profile }
+                                        )
+                                    }
                                 }
                             }
                         ) { save(configuration.copy(activeProfileId = profile.id)) }
@@ -166,6 +179,15 @@ private fun PremiumHeader(title: String, onClose: () -> Unit) {
     }
 }
 
+/** Una sola línea de horario y, solo si hay, cuántos contactos y excepciones tiene. */
+private fun resumenPerfil(p: ProtectionProfile): String {
+    val extras = listOfNotNull(
+        p.scheduledContacts.size.takeIf { it > 0 }?.let { if (it == 1) "1 contacto" else "$it contactos" },
+        p.exceptions.size.takeIf { it > 0 }?.let { if (it == 1) "1 excepción" else "$it excepciones" }
+    )
+    return (listOf(scheduleDescription(p.schedule)) + extras).joinToString(" · ")
+}
+
 @Composable
 private fun ProfileChoice(
     title: String, description: String, selected: Boolean,
@@ -180,7 +202,8 @@ private fun ProfileChoice(
             RadioButton(selected = selected, onClick = null)
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
         trailing()
