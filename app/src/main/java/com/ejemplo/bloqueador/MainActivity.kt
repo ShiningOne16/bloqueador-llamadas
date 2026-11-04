@@ -173,7 +173,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
                         regresoDePremium = Seccion.PROTECCION
                         seccion = Seccion.PREMIUM
                     }
-                    Seccion.PREMIUM -> PantallaPremium(onCerrar = { seccion = regresoDePremium }, onChanged = onChanged)
+                    Seccion.PREMIUM -> PantallaPremium(onCerrar = { seccion = regresoDePremium }, onChanged = onChanged, refreshKey = refreshKey)
                 }
             }
         }

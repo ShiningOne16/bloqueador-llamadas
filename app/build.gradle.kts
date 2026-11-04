@@ -13,8 +13,8 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.5.1"
+        versionCode = 12
+        versionName = "1.5.2"
     }
 
     // Llave fija para que cada versión nueva se instale encima de la anterior.

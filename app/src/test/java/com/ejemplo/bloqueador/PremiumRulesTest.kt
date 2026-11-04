@@ -82,10 +82,59 @@ class PremiumRulesTest {
     }
 
     @Test fun editorStateCanBeSavedAcrossActivityRecreation() {
-        val profile = defaultProfiles().first().copy(exceptions = listOf(NumberException(phone, "Prueba", NumberAction.ALLOW)))
+        val profile = defaultProfiles().first().copy(exceptions = listOf(NumberException(phone, "Prueba", NumberAction.ALLOW)),
+            scheduledContacts = listOf(ScheduledContact("5587654321", "Jefe")))
         val bytes = ByteArrayOutputStream()
         ObjectOutputStream(bytes).use { it.writeObject(profile) }
         val restored = ObjectInputStream(ByteArrayInputStream(bytes.toByteArray())).use { it.readObject() }
         assertEquals(profile, restored)
+    }
+
+    @Test fun chosenContactIsBlockedInWorkHoursEvenWithUnknownBlockingOff() {
+        val profile = defaultProfiles().first().copy(blockUnknown = false, allowRepeat = true,
+            scheduledContacts = listOf(ScheduledContact("+52 55 1234 5678", "Jefe")))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T09:00:00")))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T17:59:59")))
+        assertEquals(CallDecision.ALLOW, PremiumRules.callDecision(profile, "5587654321", false, at("2026-11-02T12:00:00")))
+    }
+
+    @Test fun chosenContactIsAllowedBeforeAfterAndOnUnselectedDays() {
+        val profile = defaultProfiles().first().copy(scheduledContacts = listOf(ScheduledContact(phone, "Jefe")))
+        listOf("2026-11-02T08:59:59", "2026-11-02T18:00:00", "2026-11-07T12:00:00").forEach {
+            assertEquals(it, CallDecision.ALLOW, PremiumRules.callDecision(profile, phone, false, at(it)))
+        }
+    }
+
+    @Test fun scheduledContactFollowsOvernightWindowAcrossWeekBoundary() {
+        val profile = ProtectionProfile("p", "Noche", blockUnknown = false,
+            schedule = ProtectionSchedule(true, setOf(7), 22 * 60, 7 * 60),
+            scheduledContacts = listOf(ScheduledContact(phone, "Jefe")))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T06:59:59")))
+        assertEquals(CallDecision.ALLOW, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T07:00:00")))
+    }
+
+    @Test fun alwaysExceptionsKeepPriorityOverScheduledContactBlocking() {
+        val profile = defaultProfiles().first().copy(
+            scheduledContacts = listOf(ScheduledContact(phone, "Jefe")),
+            exceptions = listOf(NumberException(phone, action = NumberAction.ALLOW)))
+        assertEquals(CallDecision.ALLOW, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T12:00:00")))
+        val blocked = profile.copy(exceptions = listOf(NumberException(phone, action = NumberAction.BLOCK)))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(blocked, phone, false, at("2026-11-02T20:00:00")))
+    }
+
+    @Test fun scheduledContactsBelongOnlyToTheirSelectedProfile() {
+        val profile = ProtectionProfile("p", "Trabajo", blockUnknown = false,
+            scheduledContacts = listOf(ScheduledContact(phone, "Jefe")))
+        val other = ProtectionProfile("other", "Libre", blockUnknown = false)
+        val configuration = PremiumConfiguration(listOf(profile, other), "other")
+        assertEquals(CallDecision.ALLOW, PremiumRules.callDecision(configuration.activeProfile, phone, false, at("2026-11-02T12:00:00")))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(configuration.copy(activeProfileId = "p").activeProfile, phone, false, at("2026-11-02T12:00:00")))
+        assertEquals(CallDecision.DEFAULT, PremiumRules.callDecision(null, phone, false, at("2026-11-02T12:00:00")))
+    }
+
+    @Test fun disablingScheduleMakesSelectedContactBlockingApplyAllDay() {
+        val profile = ProtectionProfile("p", "Siempre", schedule = ProtectionSchedule(enabled = false),
+            scheduledContacts = listOf(ScheduledContact(phone, "Jefe")))
+        assertEquals(CallDecision.BLOCK, PremiumRules.callDecision(profile, phone, false, at("2026-11-02T03:00:00")))
     }
 }

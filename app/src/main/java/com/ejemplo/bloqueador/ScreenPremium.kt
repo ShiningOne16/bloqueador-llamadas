@@ -40,7 +40,7 @@ fun currentProtectionTime(): LocalDateTime {
 }
 
 @Composable
-fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit) {
+fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int) {
     val context = LocalContext.current
     val store = remember { PremiumStore(context) }
     var configuration by remember { mutableStateOf(store.read()) }
@@ -58,6 +58,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit) {
     if (editor != null) {
         ProfileEditor(
             initial = editor,
+            refreshKey = refreshKey,
             onClose = { editing = null },
             onSave = { profile ->
                 val profiles = configuration.profiles.toMutableList()
@@ -105,7 +106,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit) {
             }
             items(configuration.profiles, key = { it.id }) { profile ->
                 Tarjeta {
-                    ProfileChoice(profile.name, scheduleDescription(profile.schedule) + "\n${profile.exceptions.size} excepciones de llamadas",
+                    ProfileChoice(profile.name, scheduleDescription(profile.schedule) + "\n${profile.scheduledContacts.size} números de agenda por horario · ${profile.exceptions.size} excepciones",
                         configuration.activeProfileId == profile.id) { save(configuration.copy(activeProfileId = profile.id)) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = Esp.s), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { editing = profile }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Editar") }
@@ -168,11 +169,12 @@ private fun ProfileChoice(title: String, description: String, selected: Boolean,
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProfileEditor(initial: ProtectionProfile, onClose: () -> Unit, onSave: (ProtectionProfile) -> Unit) {
+private fun ProfileEditor(initial: ProtectionProfile, refreshKey: Int, onClose: () -> Unit, onSave: (ProtectionProfile) -> Unit) {
     val context = LocalContext.current
     var draft by rememberSaveable(initial.id) { mutableStateOf(initial) }
     var discard by rememberSaveable { mutableStateOf(false) }
     var addException by rememberSaveable { mutableStateOf(false) }
+    var selectContacts by rememberSaveable { mutableStateOf(false) }
     var removing by rememberSaveable { mutableStateOf<NumberException?>(null) }
     val valid = draft.name.isNotBlank() && (!draft.schedule.enabled || draft.schedule.days.isNotEmpty())
     fun close() { if (draft != initial) discard = true else onClose() }
@@ -182,6 +184,14 @@ private fun ProfileEditor(initial: ProtectionProfile, onClose: () -> Unit, onSav
             draft = draft.copy(schedule = if (start) draft.schedule.copy(startMinute = hour * 60 + min)
             else draft.schedule.copy(endMinute = hour * 60 + min))
         }, minute / 60, minute % 60, true).show()
+    }
+    if (selectContacts) {
+        ScheduledContactPicker(
+            selected = draft.scheduledContacts, refreshKey = refreshKey,
+            onClose = { selectContacts = false },
+            onSave = { draft = draft.copy(scheduledContacts = it); selectContacts = false }
+        )
+        return
     }
     BackHandler { close() }
 
@@ -231,9 +241,35 @@ private fun ProfileEditor(initial: ProtectionProfile, onClose: () -> Unit, onSav
                     }
                 }
             }
+            Text("Contactos a bloquear en este horario", style = MaterialTheme.typography.titleMedium)
+            Text("Elige los números de tu agenda cuyas llamadas quieres rechazar durante los días y horas de este perfil. Fuera de ese horario podrán llamar. Si desactivas Usar horario, el bloqueo se aplica todo el día. Para bloquear solo estos contactos, desactiva Bloquear desconocidos.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Tarjeta {
+                if (draft.scheduledContacts.isEmpty()) Text("Ningún contacto seleccionado", Modifier.padding(Esp.l))
+                draft.scheduledContacts.forEach { contact ->
+                    val exception = draft.exceptions.firstOrNull { PremiumRules.numberKey(it.number) == PremiumRules.numberKey(contact.number) }
+                    ListItem(
+                        headlineContent = { Text(contact.name.ifBlank { contact.number }) },
+                        supportingContent = { Text(contact.number + when (exception?.action) {
+                            NumberAction.ALLOW -> " · Tiene Permitir siempre: no se bloqueará."
+                            NumberAction.BLOCK -> " · Tiene Bloquear siempre: también se bloquea fuera del horario."
+                            null -> " · Solo en el horario del perfil"
+                        }) },
+                        trailingContent = { IconButton(onClick = { draft = draft.copy(scheduledContacts = draft.scheduledContacts - contact) }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Quitar ${contact.name} del horario")
+                        } },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                    )
+                }
+                TextButton(onClick = { selectContacts = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Icon(Icons.Filled.Contacts, contentDescription = null)
+                    Spacer(Modifier.width(Esp.s))
+                    Text("Elegir de mi agenda")
+                }
+            }
             Text("Reglas durante el horario", style = MaterialTheme.typography.titleMedium)
             Tarjeta {
-                FilaInterruptor(Icons.Filled.PhoneDisabled, "Bloquear desconocidos", "Los contactos siguen entrando salvo una excepción de bloqueo.", draft.blockUnknown) { draft = draft.copy(blockUnknown = it) }
+                FilaInterruptor(Icons.Filled.PhoneDisabled, "Bloquear desconocidos", "También puedes bloquear contactos elegidos arriba durante este horario.", draft.blockUnknown) { draft = draft.copy(blockUnknown = it) }
                 Separador()
                 FilaInterruptor(Icons.Filled.VisibilityOff, "Bloquear números ocultos", "Llamadas privadas o sin número.", draft.blockHidden) { draft = draft.copy(blockHidden = it) }
                 Separador()
