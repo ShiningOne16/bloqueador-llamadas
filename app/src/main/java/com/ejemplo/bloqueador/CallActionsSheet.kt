@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
@@ -54,6 +56,12 @@ fun HojaNumero(
     val noteStore = remember { NoteStore(context) }
     var nota by remember(numero) { mutableStateOf(noteStore.get(numero)) }
     var editandoNota by remember { mutableStateOf(false) }
+    val spamStore = remember { SpamStore(context) }
+    var reportado by remember(numero) { mutableStateOf(spamStore.reportado(numero)) }
+    var permitidoSpam by remember(numero) { mutableStateOf(spamStore.permitido(numero)) }
+    val enLista = remember(numero) { SpamLista.categoria(context, numero) }
+    var reportando by remember { mutableStateOf(false) }
+    var dialogoSpam by remember { mutableStateOf(false) }
     val valid = SmsPolicy.recipient(numero) != null
     val canBlock = valid && Prefs.normalize(numero).length >= 7
     fun edit() {
@@ -117,6 +125,37 @@ fun HojaNumero(
                     )
                 }
             }
+            if (nombre == null && SpamRules.reportable(numero)) {
+                Spacer(Modifier.height(Esp.m))
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    if (enLista != null) {
+                        ListItem(
+                            leadingContent = { Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            headlineContent = { Text("En la lista de spam") },
+                            supportingContent = { Text(enLista.etiqueta) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                        ListItem(
+                            modifier = Modifier.clickable(role = Role.Switch) {
+                                permitidoSpam = !permitidoSpam; spamStore.permitir(numero, permitidoSpam)
+                            },
+                            headlineContent = { Text("No es spam") },
+                            supportingContent = { Text("Deja de bloquearse por la lista en este teléfono") },
+                            trailingContent = { Switch(checked = permitidoSpam, onCheckedChange = null) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    ListItem(
+                        modifier = Modifier.clickable(enabled = !reportado && !reportando, role = Role.Button) { dialogoSpam = true },
+                        leadingContent = { Icon(Icons.Filled.Report, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        headlineContent = { Text(if (reportado) "Ya lo reportaste" else "Reportar como spam") },
+                        supportingContent = { Text("Ayuda a que otros no contesten este número") },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
             if (historial.isNotEmpty()) {
                 Rotulo("Historial")
                 Tarjeta(Modifier.padding(horizontal = Esp.l)) {
@@ -146,6 +185,22 @@ fun HojaNumero(
             }
         }
     }
+    if (dialogoSpam) DialogoReporteSpam(
+        numero = numero, puedeBloquear = canBlock && !blocked,
+        onReportar = { categoria, bloquear ->
+            dialogoSpam = false
+            if (bloquear) { prefs.setManualBlock(numero, true); blocked = true }
+            reportando = true
+            scope.launch {
+                val error = withContext(Dispatchers.IO) { SpamComunidad.reportar(context, numero, categoria) }
+                reportando = false
+                if (error == null) reportado = spamStore.reportado(numero)
+                Toast.makeText(context,
+                    error ?: "Reporte enviado. Gracias.", Toast.LENGTH_LONG).show()
+            }
+        },
+        onCerrar = { dialogoSpam = false }
+    )
     if (editandoNota) DialogoNota(
         numeroInicial = numero, editarNumero = false,
         etiquetaInicial = nota?.label.orEmpty(), notaInicial = nota?.note.orEmpty(), puedeBorrar = nota != null,

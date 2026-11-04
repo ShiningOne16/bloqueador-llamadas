@@ -68,6 +68,10 @@ class BlockerService : CallScreeningService() {
         }
 
         val profile = PremiumStore(this).read().activeProfile
+        // Lista de spam de la comunidad (Premium, opcional): bloquea y avisa. No toca contactos, excepciones
+        // de permitir, números marcados "no es spam" ni permisos temporales de un número (el de un número ya se atendió arriba).
+        if (!hidden && bloqueadoPorSpam(prefs, profile, number, now)) return Veredicto.BLOQUEAR
+
         when (PremiumRules.callDecision(profile, number, hidden, LocalDateTime.now())) {
             CallDecision.ALLOW -> return Veredicto.PASAR
             CallDecision.BLOCK -> {
@@ -115,6 +119,19 @@ class BlockerService : CallScreeningService() {
 
         prefs.addBlocked(number, now)
         return Veredicto.BLOQUEAR
+    }
+
+    private fun bloqueadoPorSpam(prefs: Prefs, profile: ProtectionProfile?, number: String, now: Long): Boolean {
+        val spam = SpamStore(this)
+        if (!spam.activo || spam.permitido(number)) return false
+        val clave = PremiumRules.numberKey(number)
+        if (profile?.exceptions?.any { it.action == NumberAction.ALLOW && PremiumRules.numberKey(it.number) == clave } == true) return false
+        if (SpamLista.categoria(this, number) == null) return false
+        // Sin permiso de contactos no se puede saber si es un contacto: ante la duda, no se bloquea.
+        if (!Contacts.hasPermission(this) || Contacts.isNumberInContacts(this, number)) return false
+        val ultimo = prefs.lastBlockedAt(number)
+        if (ultimo == null || now - ultimo >= RETRY_WINDOW_MS) prefs.addBlocked(number, now)
+        return true
     }
 
     /**

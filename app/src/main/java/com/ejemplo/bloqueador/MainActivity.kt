@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         Anuncios.iniciar(this)
+        SpamProgramacion.programar(this)
     }
 
     override fun onDestroy() {

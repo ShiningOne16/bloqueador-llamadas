@@ -111,6 +111,12 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
 
     var busqueda by rememberSaveable { mutableStateOf("") }
     var notasVersion by remember { mutableIntStateOf(0) }
+    // La lista de spam se lee fuera del hilo principal antes de usarla en las filas.
+    val spamActivo = remember(refreshKey) { SpamStore(context).activo }
+    var spamLista by remember { mutableStateOf(false) }
+    LaunchedEffect(spamActivo, refreshKey) {
+        spamLista = spamActivo && withContext(Dispatchers.IO) { SpamLista.total(context) } > 0
+    }
     val notas = remember(refreshKey, notasVersion) { NoteStore(context).map() }
     var seleccion by remember { mutableStateOf<CallGroup?>(null) }
     val selectionMode = selectedKeys.isNotEmpty()
@@ -210,6 +216,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                                     g,
                                     modifier = Modifier.animateItem(),
                                     etiqueta = notas[NoteRules.key(g.latest.number)]?.label?.takeIf { it.isNotBlank() },
+                                    spam = if (spamLista && g.latest.name == null) SpamLista.categoria(context, g.latest.number) else null,
                                     onClick = {
                                         if (selectionMode) selectedKeys = HistorySelection.toggle(selectedKeys, g.entries.map { it.archiveKey() })
                                         else seleccion = g
@@ -395,7 +402,7 @@ private fun coincideBusqueda(c: CallEntry, q: String, nota: NumberNote?): Boolea
 @OptIn(ExperimentalFoundationApi::class)
 private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit,
     enabled: Boolean, onLongClick: () -> Unit, selectionMode: Boolean, selectionState: ToggleableState,
-    modifier: Modifier = Modifier, etiqueta: String? = null) {
+    modifier: Modifier = Modifier, etiqueta: String? = null, spam: CategoriaSpam? = null) {
     val c = g.latest
     val titulo = NoteRules.title(c.name, etiqueta, c.number)
     val alerta = tipoVista(c.type).alerta
@@ -433,7 +440,7 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit,
                 }
             }
         },
-        supportingContent = { LineaTipo(c, extraTexto = if (c.name == null && etiqueta != null) c.number else null, conFecha = false) },
+        supportingContent = { LineaTipo(c, extraTexto = listOfNotNull(if (c.name == null && etiqueta != null) c.number else null, spam?.let { "Spam: ${it.etiqueta}" }).joinToString(" · ").ifEmpty { null }, conFecha = false) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.xs)) {
                 Text(

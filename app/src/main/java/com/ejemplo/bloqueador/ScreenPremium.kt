@@ -55,6 +55,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var viendoNotas by rememberSaveable { mutableStateOf(false) }
     var viendoAsistente by rememberSaveable { mutableStateOf(false) }
     var viendoTemporal by rememberSaveable { mutableStateOf(false) }
+    var viendoSpam by rememberSaveable { mutableStateOf(false) }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -77,6 +78,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                 editing = null
             }
         )
+        return
+    }
+    if (viendoSpam) {
+        PantallaSpam(onCerrar = { viendoSpam = false }, onChanged = onChanged)
         return
     }
     if (viendoTemporal) {
@@ -130,6 +135,12 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         "Concentración y permisos",
                         "Rechaza todas las llamadas por un rato, o deja pasar a un número o a los desconocidos por un tiempo."
                     ) { viendoTemporal = true }
+                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    FilaAccion(
+                        Icons.Filled.Report,
+                        "Lista de spam",
+                        "Bloquea los números que la comunidad reporta como spam y reporta los tuyos."
+                    ) { viendoSpam = true }
                 }
             }
             item {
@@ -463,7 +474,7 @@ private fun PremiumHero() {
             IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 48.dp)
             Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall, color = texto)
             Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números", "Asistente de llamadas", "Concentración y permisos").forEach { beneficio ->
+                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números", "Asistente de llamadas", "Concentración y permisos", "Lista de spam").forEach { beneficio ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
                         Icon(Icons.Filled.Check, contentDescription = null, tint = extra.marca, modifier = Modifier.size(18.dp))
                         Text(beneficio, style = MaterialTheme.typography.bodyLarge, color = texto)
