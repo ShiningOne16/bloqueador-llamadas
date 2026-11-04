@@ -8,22 +8,26 @@ import android.database.sqlite.SQLiteOpenHelper
 data class SmsSendResult(val uri: String, val state: String, val date: Long)
 
 /** Confirmaciones de multipartes duraderas: los callbacks sobreviven al cierre de la interfaz. */
-class SmsJournal(context: Context) : SQLiteOpenHelper(context.createDeviceProtectedStorageContext(), "sms_sending.db", null, 2) {
+class SmsJournal(context: Context) : SQLiteOpenHelper(context.createDeviceProtectedStorageContext(), "sms_sending.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE sends(token TEXT PRIMARY KEY, uri TEXT NOT NULL, parts INTEGER NOT NULL, created INTEGER NOT NULL, state TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE sends(token TEXT PRIMARY KEY, uri TEXT NOT NULL, parts INTEGER NOT NULL, created INTEGER NOT NULL, state TEXT NOT NULL, settled INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE TABLE results(token TEXT NOT NULL, part INTEGER NOT NULL, result INTEGER NOT NULL, PRIMARY KEY(token,part))")
         db.execSQL("CREATE TABLE incoming(receipt TEXT PRIMARY KEY, uri TEXT NOT NULL)")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) db.execSQL("CREATE TABLE IF NOT EXISTS incoming(receipt TEXT PRIMARY KEY, uri TEXT NOT NULL)")
+        if (oldVersion < 3) db.execSQL("ALTER TABLE sends ADD COLUMN settled INTEGER NOT NULL DEFAULT 0")
     }
 
     fun received(receipt: String): Boolean = readableDatabase.query("incoming", arrayOf("receipt"), "receipt=?", arrayOf(receipt), null, null, null).use { it.moveToFirst() }
     fun recordIncoming(receipt: String, uri: String) {
         writableDatabase.insertWithOnConflict("incoming", null, ContentValues().apply { put("receipt", receipt); put("uri", uri) }, SQLiteDatabase.CONFLICT_IGNORE)
     }
-    fun completed(): List<SmsSendResult> = readableDatabase.query("sends", arrayOf("uri", "state", "created"), "state!=?", arrayOf("pending"), null, null, null).use {
+    fun completed(): List<SmsSendResult> = readableDatabase.query("sends", arrayOf("uri", "state", "created"), "state!=? AND settled=0", arrayOf("pending"), null, null, null).use {
         buildList { while (it.moveToNext()) add(SmsSendResult(it.getString(0), it.getString(1), it.getLong(2))) }
+    }
+    fun settle(uri: String, date: Long) {
+        writableDatabase.update("sends", ContentValues().apply { put("settled", 1) }, "uri=? AND created=?", arrayOf(uri, date.toString()))
     }
 
     fun create(token: String, uri: String, parts: Int, date: Long = System.currentTimeMillis()) {
@@ -53,7 +57,7 @@ class SmsJournal(context: Context) : SQLiteOpenHelper(context.createDeviceProtec
                 while (it.moveToNext()) results[it.getInt(0)] = it.getInt(1)
             }
             val state = SmsPolicy.sendState(count, results, android.app.Activity.RESULT_OK)
-            db.update("sends", ContentValues().apply { put("state", state) }, "token=?", arrayOf(token))
+            db.update("sends", ContentValues().apply { put("state", state); put("settled", 0) }, "token=?", arrayOf(token))
             db.setTransactionSuccessful()
             return SmsSendResult(uri!!, state, date)
         } finally { db.endTransaction() }
@@ -61,7 +65,7 @@ class SmsJournal(context: Context) : SQLiteOpenHelper(context.createDeviceProtec
 
     fun stale(): List<SmsSendResult> {
         val cutoff = System.currentTimeMillis() - 10 * 60_000L
-        return readableDatabase.query("sends", arrayOf("uri", "created"), "state=? AND created<?", arrayOf("pending", cutoff.toString()), null, null, null).use {
+        return readableDatabase.query("sends", arrayOf("uri", "created"), "state=? AND created<? AND settled=0", arrayOf("pending", cutoff.toString()), null, null, null).use {
             buildList { while (it.moveToNext()) add(SmsSendResult(it.getString(0), "pending", it.getLong(1))) }
         }
     }

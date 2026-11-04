@@ -63,7 +63,8 @@ otra app, dejan de estar disponibles también en Archivadas. Archivar o desarchi
    Nunca se envía un mensaje solo por abrir un enlace o una conversación.
 
 Los SMS existentes permanecen en la base de datos de Android. La recepción guarda primero una cola
-local duradera, incluso antes del desbloqueo, y WorkManager la incorpora a la bandeja. Las confirmaciones
+local duradera, incluso antes del desbloqueo. Los SMS se incorporan durante la entrega del sistema y
+WorkManager recupera los pendientes. Las confirmaciones
 de cada parte de un SMS largo se guardan en SQLite. **Enviado** significa que el teléfono aceptó todas las
 partes, no que el destinatario las recibió. Los fallos y los envíos sin confirmar no se reintentan solos;
 revisa el texto antes de reenviar, ya que algunas partes pueden haber llegado. Máximo: 10 partes por envío.

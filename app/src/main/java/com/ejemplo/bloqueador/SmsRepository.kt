@@ -111,12 +111,14 @@ object SmsRepository {
                 put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_FAILED)
                 put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_FAILED)
             }, "${Telephony.Sms.TYPE}=? AND ${Telephony.Sms.DATE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString(), record.date.toString()))
+            journal.settle(record.uri, record.date)
         }
             journal.completed().forEach { (uri, state, date) ->
                 context.contentResolver.update(Uri.parse(uri), ContentValues().apply {
                     put(Telephony.Sms.TYPE, if (state == "sent") Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
                     put(Telephony.Sms.STATUS, if (state == "sent") Telephony.Sms.STATUS_NONE else Telephony.Sms.STATUS_FAILED)
                 }, "${Telephony.Sms.TYPE}=? AND ${Telephony.Sms.DATE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString(), date.toString()))
+                journal.settle(uri, date)
             }
         }
     }

@@ -27,7 +27,7 @@ object SmsInboxQueue {
     fun files(context: Context) = directory(context).listFiles().orEmpty()
         .map { File(it.parentFile, it.name.removeSuffix(".bak")) }.filter { it.extension == "json" }.distinctBy { it.name }
 
-    fun store(context: Context, intent: Intent, kind: String) {
+    fun store(context: Context, intent: Intent, kind: String): File {
         val sub = intent.getIntExtra("subscription", intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, SubscriptionManager.INVALID_SUBSCRIPTION_ID))
         val pdus = JSONArray()
         if (kind == "sms") {
@@ -45,6 +45,7 @@ object SmsInboxQueue {
         val output = atomic.startWrite()
         try { output.write(payload.toString().toByteArray()); atomic.finishWrite(output) }
         catch (e: Exception) { atomic.failWrite(output); throw e }
+        return atomic.baseFile
     }
 
     fun enqueue(context: Context) {
@@ -63,7 +64,18 @@ open class SmsDeliveryReceiver : BroadcastReceiver() {
         }
         val result = goAsync()
         thread(name = "store-incoming-message") {
-            try { SmsInboxQueue.store(context, intent, kind); SmsInboxQueue.enqueue(context) }
+            try {
+                val file = SmsInboxQueue.store(context, intent, kind)
+                // Procesa los SMS durante la entrega del sistema, sin esperar al planificador de trabajos.
+                if (kind == "sms" && context.getSystemService(UserManager::class.java).isUserUnlocked && SmsRepository.isDefault(context)) {
+                    try {
+                        val raw = JSONObject(AtomicFile(file).openRead().bufferedReader().use { it.readText() })
+                        SmsInboxWorker.persistSms(context, raw, file.nameWithoutExtension)
+                        file.delete()
+                    } catch (_: Exception) { /* La copia duradera queda para WorkManager. */ }
+                }
+                SmsInboxQueue.enqueue(context)
+            }
             catch (_: Exception) { SmsNotifications.error(context, "No se pudo guardar un mensaje. Revisa el espacio libre y abre Bloqueador.") }
             finally { result.finish() }
         }
@@ -88,7 +100,7 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
                         SmsJournal(applicationContext).use { it.recordIncoming(receipt, "mms:queued") }
                     }
                 }
-                else persistSms(raw, file.nameWithoutExtension)
+                else persistSms(applicationContext, raw, file.nameWithoutExtension)
                 check(file.delete()) { "No se pudo retirar el mensaje procesado de la cola" }
                 } catch (_: Exception) { errors = true }
             }
@@ -102,8 +114,8 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
         }
     }
 
-    private fun persistSms(raw: JSONObject, receipt: String) {
-        val context = applicationContext
+    companion object {
+    @Synchronized fun persistSms(context: Context, raw: JSONObject, receipt: String) {
         if (SmsJournal(context).use { it.received(receipt) }) return
         val parts = raw.getJSONArray("pdus")
         val messages = (0 until parts.length()).map { index ->
@@ -137,6 +149,7 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
         if (silence) Prefs(context).addSilencedSms(from, body, System.currentTimeMillis())
         else SmsNotifications.incoming(context, threadId, from, body)
     }
+    }
 }
 
 class SmsRecoveryReceiver : BroadcastReceiver() {
@@ -165,6 +178,7 @@ class SmsSentReceiver : BroadcastReceiver() {
                         if (result.state == "sent") put(Telephony.Sms.DATE_SENT, System.currentTimeMillis())
                         else put(Telephony.Sms.ERROR_CODE, sentResult)
                     }, "${Telephony.Sms.DATE}=?", arrayOf(result.date.toString()))
+                    SmsJournal(context).use { it.settle(result.uri, result.date) }
                     if (count > 0 && result.state == "failed") SmsNotifications.error(context, "No se confirmó el envío de un SMS. Revisa el mensaje antes de reenviar; algunas partes pudieron llegar.")
                 }
             } catch (_: Exception) { SmsNotifications.error(context, "Hay un estado de envío pendiente de actualizar. Abre Mensajes para revisarlo.") }

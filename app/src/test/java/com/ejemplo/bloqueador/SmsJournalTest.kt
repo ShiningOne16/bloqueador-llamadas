@@ -48,6 +48,17 @@ class SmsJournalTest {
         SmsJournal(context).use { assertTrue(it.received("receipt")); assertFalse(it.received("new-receipt")) }
     }
 
+    @Test fun settlingAnOldMessageDoesNotConsumeAReusedProvidersId() {
+        SmsJournal(context).use {
+            it.create("old-row", "content://sms/7", 1, 100L)
+            it.create("reused-row", "content://sms/7", 1, 200L)
+            it.record("old-row", 0, Activity.RESULT_OK)
+            it.record("reused-row", 0, Activity.RESULT_OK)
+            it.settle("content://sms/7", 100L)
+            assertEquals(listOf(200L), it.completed().map { result -> result.date })
+        }
+    }
+
     @Test fun externalSmsLinkOnlyProducesAnEditorRequest() {
         val request = SmsNavigation.parse(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:%2B525512345678?body=Hola%20Ana")))!!
         assertEquals("+525512345678", request.address)
