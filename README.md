@@ -121,6 +121,12 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   agenda (también en Google), su registro de llamadas y sus SMS (estos solo si Bloqueador es la app
   predeterminada). Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
   y sus llamadas anteriores.
+- **Concentración y permisos temporales:** el **modo concentración** rechaza todas las llamadas (también las de tus
+  contactos y aunque Protección esté en pausa) durante 1, 2 o 4 horas y se apaga solo; una franja en Recientes te
+  recuerda que está activo y trae el botón Terminar. Un **permiso temporal** deja pasar a un número concreto, o a todos
+  los desconocidos, durante 30 min, 1, 2 o 4 horas (por ejemplo, mientras esperas al repartidor). El permiso de un
+  número gana sobre sus bloqueos y sobre la concentración; el de "todos los desconocidos" no vence la concentración
+  ni los bloqueos manuales. Solo afectan a llamadas, no a SMS.
 - **Asistente de llamadas:** cuando llama alguien que no está en tus contactos, la llamada se **silencia** (sigue
   activa, sin sonar) y se le manda un SMS: "soy el asistente de …, responde con tu nombre y el motivo". Si responde,
   llega una notificación con su mensaje, una clasificación por palabras clave (entrega o cita, publicidad, incierto) y

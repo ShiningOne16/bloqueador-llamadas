@@ -9,7 +9,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DoNotDisturbOn
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
@@ -137,6 +139,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             onDelete = { deleteTarget = llamadas.orEmpty().filter { it.archiveKey() in selectedKeys } }, enabled = !busy)
         else Titulo("Recientes")
 
+        if (!selectionMode) AvisoTemporal(refreshKey)
         if (pasosFaltantes > 0) AvisoConfigurar(pasosFaltantes, irAProteccion)
 
         if (!tienePermiso) {
@@ -298,6 +301,40 @@ private fun AvisoConfigurar(pasos: Int, onClick: () -> Unit) {
                 )
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Franja que recuerda que el modo concentración o un permiso temporal están activos. */
+@Composable
+private fun AvisoTemporal(refreshKey: Int) {
+    val context = LocalContext.current
+    val store = remember { TemporalStore(context) }
+    val minuto = currentProtectionTime() // se renueva cada minuto: la franja desaparece sola al vencer
+    var version by remember { mutableIntStateOf(0) }
+    val ahora = remember(minuto, refreshKey, version) { System.currentTimeMillis() }
+    val hasta = remember(ahora) { store.concentracionHasta }
+    val permisos = remember(ahora) { store.permisos(ahora).size }
+    val concentrado = TemporalRules.activo(hasta, ahora)
+    if (!concentrado && permisos == 0) return
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.xs)
+    ) {
+        Row(
+            Modifier.padding(start = Esp.l, end = Esp.s).heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Esp.m)
+        ) {
+            Icon(if (concentrado) Icons.Filled.DoNotDisturbOn else Icons.Filled.Timer, contentDescription = null)
+            Text(
+                if (concentrado) "Concentración hasta las ${horaCorta(hasta)}"
+                else if (permisos == 1) "Permiso temporal activo" else "Permisos temporales activos: $permisos",
+                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium
+            )
+            if (concentrado) TextButton(onClick = { store.terminarConcentracion(); version++ }) { Text("Terminar") }
         }
     }
 }

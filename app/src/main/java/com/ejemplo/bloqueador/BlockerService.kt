@@ -43,12 +43,23 @@ class BlockerService : CallScreeningService() {
 
     private fun decidir(details: Call.Details): Veredicto {
         val prefs = Prefs(this)
-        if (!prefs.enabled) return Veredicto.PASAR
-
         val number = details.handle?.schemeSpecificPart?.trim().orEmpty()
         val now = System.currentTimeMillis()
         val hidden = number.isEmpty() ||
             details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
+
+        // Permiso temporal de un número: gana sobre bloqueos y sobre el modo concentración.
+        val temporal = TemporalStore(this)
+        if (!hidden && temporal.permiteNumero(number, now)) return Veredicto.PASAR
+        // Modo concentración: se rechaza todo lo demás, aunque Protección esté en pausa.
+        if (temporal.concentracionActiva(now)) {
+            val etiqueta = if (hidden) getString(R.string.hidden_number) else number
+            val ultimo = prefs.lastBlockedAt(etiqueta)
+            if (ultimo == null || now - ultimo >= RETRY_WINDOW_MS) prefs.addBlocked(etiqueta, now)
+            return Veredicto.BLOQUEAR
+        }
+
+        if (!prefs.enabled) return Veredicto.PASAR
 
         if (!hidden && prefs.manuallyBlocked(number)) {
             val last = prefs.lastBlockedAt(number)
@@ -78,6 +89,9 @@ class BlockerService : CallScreeningService() {
 
         // Sin permiso de contactos no sabemos quién es conocido: no bloqueamos (la app avisa en pantalla)
         if (!Contacts.hasPermission(this) || Contacts.isNumberInContacts(this, number)) return Veredicto.PASAR
+
+        // Permiso temporal para todos los desconocidos (el modo concentración ya respondió arriba y tiene prioridad).
+        if (temporal.permiteDesconocidos(now)) return Veredicto.PASAR
 
         // Asistente (Premium): a un desconocido que ya recibió el SMS se le deja sonar si insiste;
         // a uno nuevo se le silencia y se le pide que se identifique, en lugar de rechazarlo.
