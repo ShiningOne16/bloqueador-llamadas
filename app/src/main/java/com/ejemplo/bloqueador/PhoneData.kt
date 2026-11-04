@@ -139,7 +139,7 @@ object PhoneData {
                 .withSelection("${CallLog.Calls._ID} = ? AND ${CallLog.Calls.DATE} = ?", arrayOf(call.id.toString(), call.date.toString()))
                 .build()
         }
-        return context.contentResolver.applyBatch(CallLog.AUTHORITY, ArrayList(operations)).sumOf { it.count ?: 0 }
+        return operations.chunked(200).sumOf { chunk -> context.contentResolver.applyBatch(CallLog.AUTHORITY, ArrayList(chunk)).sumOf { it.count ?: 0 } }
     }
 
     // ---------------- Contactos ----------------
@@ -260,6 +260,24 @@ object PhoneData {
 
 /** Acciones que abren el marcador, la app de SMS o Contactos del sistema. */
 object Acciones {
+
+    fun whatsapp(context: Context, number: String): Boolean {
+        val country = try { context.getSystemService(android.telephony.TelephonyManager::class.java).networkCountryIso.uppercase() }
+            catch (_: Exception) { "" }
+        val e164 = if (number.trim().startsWith("+")) SmsPolicy.recipient(number)
+            else android.telephony.PhoneNumberUtils.formatNumberToE164(number, country.ifBlank { java.util.Locale.getDefault().country })
+        if (e164 == null) {
+            android.widget.Toast.makeText(context, "Guarda el número con código de país (por ejemplo, +52) para abrir WhatsApp.", android.widget.Toast.LENGTH_LONG).show()
+            return false
+        }
+        val uri = Uri.parse("https://wa.me/${e164.filter { it.isDigit() }}")
+        for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b", null)) {
+            try { context.startActivity(Intent(Intent.ACTION_VIEW, uri).apply { if (pkg != null) setPackage(pkg) }); return true }
+            catch (_: android.content.ActivityNotFoundException) { }
+        }
+        android.widget.Toast.makeText(context, "No se pudo abrir WhatsApp.", android.widget.Toast.LENGTH_LONG).show()
+        return false
+    }
 
     /** El borrado de SMS se completa en la app de SMS predeterminada de Android. */
     fun manageSms(context: Context, address: String): Boolean {

@@ -4,8 +4,11 @@ import android.Manifest
 import android.provider.CallLog
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +36,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -47,7 +53,8 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     var archive by remember(refreshKey) { mutableStateOf(archiveStore.read()) }
     var filtro by rememberSaveable { mutableIntStateOf(0) }
     var recarga by remember { mutableIntStateOf(0) }
-    var deleteTarget by remember { mutableStateOf<CallGroup?>(null) }
+    var deleteTarget by remember { mutableStateOf<List<CallEntry>?>(null) }
+    var selectedKeys by rememberSaveable { mutableStateOf(listOf<String>()) }
     var permissionTarget by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
     var denied by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -62,6 +69,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                 val count = withContext(Dispatchers.IO) { PhoneData.deleteCalls(context, calls) }
                 archive = archiveStore.read().restoreCalls(calls.map { it.archiveKey() })
                 archiveStore.save(archive)
+                selectedKeys = emptyList()
                 Toast.makeText(context, if (count == 0) "Estas llamadas ya no están en el registro" else "$count llamadas eliminadas", Toast.LENGTH_LONG).show()
             } catch (e: CancellationException) { throw e
             } catch (_: SecurityException) { denied = true
@@ -85,6 +93,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                 llamadas = withContext(Dispatchers.IO) {
                     PhoneData.loadCalls(context, onlyIds = if (filtro == 3) archive.calls.mapNotNull { it.substringBefore(':').toLongOrNull() }.toSet() else null)
                 }
+                selectedKeys = HistorySelection.prune(selectedKeys, llamadas.orEmpty().map { it.archiveKey() })
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) { loadError = true; llamadas = emptyList() }
         }
@@ -92,9 +101,24 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
 
     var busqueda by rememberSaveable { mutableStateOf("") }
     var seleccion by remember { mutableStateOf<CallEntry?>(null) }
+    val selectionMode = selectedKeys.isNotEmpty()
+    BackHandler(enabled = selectionMode && !busy) { selectedKeys = emptyList() }
+    val visibleGroups = remember(llamadas, filtro, busqueda, archive) {
+        val bandeja = llamadas.orEmpty().filter { (it.archiveKey() in archive.calls) == (filtro == 3) }
+        val porFiltro = when (filtro) {
+            1 -> bandeja.filter { it.isMissedLike }
+            2 -> bandeja.filter { it.isBlockedLike }
+            else -> bandeja
+        }
+        PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda) })
+    }
 
     Column(Modifier.fillMaxSize()) {
-        Titulo("Recientes")
+        if (selectionMode) SelectionToolbar(selectedKeys.size,
+            onClose = { selectedKeys = emptyList() },
+            onSelectAll = { selectedKeys = visibleGroups.flatMap { it.entries }.map { it.archiveKey() }.distinct() },
+            onDelete = { deleteTarget = llamadas.orEmpty().filter { it.archiveKey() in selectedKeys } }, enabled = !busy)
+        else Titulo("Recientes")
 
         if (pasosFaltantes > 0) AvisoConfigurar(irAProteccion)
 
@@ -108,8 +132,10 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             return@Column
         }
 
-        Buscador(busqueda, { busqueda = it }, "Buscar en llamadas")
-        Filtros(listOf("Todas", "Perdidas", "Bloqueadas", "Archivadas"), filtro) { filtro = it }
+        if (!selectionMode) {
+            Buscador(busqueda, { busqueda = it }, "Buscar en llamadas")
+            Filtros(listOf("Todas", "Perdidas", "Bloqueadas", "Archivadas"), filtro) { filtro = it }
+        }
         if (filtro == 3) Text("Archivo local de Bloqueador. Puedes desarchivar desde el menú ⋮.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(Esp.s))
 
@@ -119,15 +145,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         } else if (lista == null) {
             Cargando()
         } else {
-            val grupos = remember(lista, filtro, busqueda, archive) {
-                val bandeja = lista.filter { (it.archiveKey() in archive.calls) == (filtro == 3) }
-                val porFiltro = when (filtro) {
-                    1 -> bandeja.filter { it.isMissedLike }
-                    2 -> bandeja.filter { it.isBlockedLike }
-                    else -> bandeja
-                }
-                PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda) })
-            }
+            val grupos = visibleGroups
             if (grupos.isEmpty()) {
                 if (busqueda.isNotBlank()) {
                     EstadoVacio(
@@ -152,7 +170,17 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                     items(grupos, key = { it.latest.id }) { g ->
                         FilaLlamada(
                             g,
-                            onClick = { seleccion = g.latest },
+                            onClick = {
+                                if (selectionMode) selectedKeys = HistorySelection.toggle(selectedKeys, g.entries.map { it.archiveKey() })
+                                else seleccion = g.latest
+                            },
+                            onLongClick = { selectedKeys = HistorySelection.toggle(selectedKeys, g.entries.map { it.archiveKey() }) },
+                            selectionMode = selectionMode,
+                            selectionState = when {
+                                g.entries.all { it.archiveKey() in selectedKeys } -> ToggleableState.On
+                                g.entries.any { it.archiveKey() in selectedKeys } -> ToggleableState.Indeterminate
+                                else -> ToggleableState.Off
+                            },
                             onLlamar = { Acciones.llamar(context, g.latest.number) },
                             onMensaje = { Acciones.mensaje(context, g.latest.number) },
                             archived = filtro == 3, enabled = !busy,
@@ -162,7 +190,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                                 archiveStore.save(archive)
                                 recarga++
                             },
-                            onDelete = { deleteTarget = g }
+                            onDelete = { deleteTarget = g.entries }
                         )
                     }
                 }
@@ -180,13 +208,13 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             onCerrar = { seleccion = null }
         )
     }
-    deleteTarget?.let { group ->
-        Confirmar("¿Eliminar ${group.entries.size} llamadas?",
+    deleteTarget?.let { calls ->
+        Confirmar("¿Eliminar ${calls.size} llamadas?",
             "Se borrarán definitivamente estos registros del historial del teléfono, también en otras apps. No cambia el registro de bloqueos de Protección. No se puede deshacer.", "Eliminar",
             onConfirmar = {
                 deleteTarget = null
-                if (PhoneData.has(context, Manifest.permission.WRITE_CALL_LOG)) deleteConfirmed(group.entries)
-                else { permissionTarget = group.entries; requestWrite.launch(Manifest.permission.WRITE_CALL_LOG) }
+                if (PhoneData.has(context, Manifest.permission.WRITE_CALL_LOG)) deleteConfirmed(calls)
+                else { permissionTarget = calls; requestWrite.launch(Manifest.permission.WRITE_CALL_LOG) }
             }, onCancelar = { deleteTarget = null })
     }
     if (denied) AlertDialog(onDismissRequest = { denied = false }, title = { Text("No se autorizó el borrado") },
@@ -235,7 +263,7 @@ private fun tipoVista(type: Int): TipoVista = when (type) {
 
 /** "Perdida · Hoy 10:32 · 2:15 min" con ícono del tipo (no depende solo del color). */
 @Composable
-private fun LineaTipo(c: CallEntry, extraTexto: String? = null) {
+internal fun LineaTipo(c: CallEntry, extraTexto: String? = null) {
     val t = tipoVista(c.type)
     val color = if (t.alerta) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.xs)) {
@@ -262,19 +290,23 @@ private fun coincideBusqueda(c: CallEntry, q: String): Boolean {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit,
-    archived: Boolean, enabled: Boolean, onArchive: () -> Unit, onDelete: () -> Unit) {
+    archived: Boolean, enabled: Boolean, onArchive: () -> Unit, onDelete: () -> Unit,
+    onLongClick: () -> Unit, selectionMode: Boolean, selectionState: ToggleableState) {
     val c = g.latest
     val titulo = c.name ?: c.number.ifBlank { "Número oculto" }
     val alerta = tipoVista(c.type).alerta
     val hayNumero = c.number.isNotBlank()
     FilaDeslizable(
-        alLlamar = if (hayNumero) onLlamar else null,
-        alMensaje = if (hayNumero) onMensaje else null
+        alLlamar = if (hayNumero && !selectionMode) onLlamar else null,
+        alMensaje = if (hayNumero && !selectionMode) onMensaje else null
     ) {
     ListItem(
-        modifier = Modifier.clickable(onClickLabel = "Ver opciones", onClick = onClick),
-        leadingContent = { Avatar(titulo) },
+        modifier = Modifier.combinedClickable(enabled = enabled, onClickLabel = if (selectionMode) "Cambiar selección" else "Ver opciones", onClick = onClick,
+            onLongClick = onLongClick, onLongClickLabel = "Seleccionar llamadas")
+            .semantics { selected = selectionState == ToggleableState.On },
+        leadingContent = { if (selectionMode) TriStateCheckbox(selectionState, onClick = null) else Avatar(titulo) },
         headlineContent = {
             Text(
                 titulo,
@@ -287,66 +319,16 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit,
         supportingContent = { LineaTipo(c, if (g.count > 1) "${g.count} veces" else null) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-            if (c.number.isNotBlank()) {
+            if (c.number.isNotBlank() && !selectionMode) {
                 IconButton(onClick = onLlamar) {
                     Icon(Icons.Filled.Call, contentDescription = "Llamar a $titulo", tint = MaterialTheme.colorScheme.primary)
                 }
             }
-                HistoryMenu(archived, "$titulo (${g.count} llamadas)", enabled, onArchive, onDelete)
+                if (!selectionMode) HistoryMenu(archived, "$titulo (${g.count} llamadas)", enabled, onArchive, onDelete)
             }
         },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        colors = ListItemDefaults.colors(containerColor = if (selectionState != ToggleableState.Off) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
     )
-    }
-}
-
-/** Hoja inferior con acciones para un número: llamar, mensaje, guardar e historial. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCerrar: () -> Unit) {
-    val context = LocalContext.current
-    val abrirFormulario = LocalAbrirFormulario.current
-    val titulo = nombre ?: numero.ifBlank { "Número oculto" }
-    ModalBottomSheet(onDismissRequest = onCerrar, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = Esp.l).padding(bottom = Esp.xl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Esp.s)
-        ) {
-            Avatar(titulo, 64.dp)
-            Text(titulo, style = MaterialTheme.typography.titleLarge)
-            if (nombre != null && numero.isNotBlank()) {
-                Text(numero, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (nombre == null && numero.isNotBlank()) {
-                Text("No está en tus contactos", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            if (numero.isNotBlank()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = Esp.m),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    BotonRedondo(Icons.Filled.Call, "Llamar", { Acciones.llamar(context, numero); onCerrar() }, destacado = true)
-                    BotonRedondo(Icons.Filled.Sms, "Mensaje", { Acciones.mensaje(context, numero); onCerrar() })
-                    if (nombre == null) {
-                        BotonRedondo(Icons.Filled.PersonAdd, "Guardar", { onCerrar(); abrirFormulario(PeticionFormulario(numero = numero)) })
-                    }
-                }
-            }
-
-            if (historial.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(
-                    "Historial",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.fillMaxWidth().padding(top = Esp.s)
-                )
-                historial.forEach { c ->
-                    Box(Modifier.fillMaxWidth().padding(vertical = Esp.xs)) { LineaTipo(c) }
-                }
-            }
-        }
     }
 }
 

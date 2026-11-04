@@ -7,10 +7,13 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -62,6 +65,9 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
     val profile = remember(refreshKey) { PremiumStore(context).read().activeProfile }
     val now = currentProtectionTime()
     val inSchedule = profile?.schedule?.contains(now) ?: true
+    val manualBlocks = remember(refreshKey) { prefs.manualBlockCount() }
+    var manageManualBlocks by remember { mutableStateOf(false) }
+    var unblock by remember { mutableStateOf<String?>(null) }
 
     var llamadasActivo by remember { mutableStateOf(prefs.enabled) }
     var ocultos by remember { mutableStateOf(prefs.blockHidden) }
@@ -84,10 +90,18 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
         item {
             Resumen(
                 estado,
-                llamadasActivo && (profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
+                llamadasActivo && (manualBlocks > 0 || profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
                 smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms)),
                 Modifier.padding(horizontal = Esp.l, vertical = Esp.s)
             )
+        }
+
+        if (manualBlocks > 0) item {
+            Tarjeta(Modifier.padding(horizontal = Esp.l, vertical = Esp.s)) {
+                FilaAccion(Icons.Filled.Block, "Bloqueados manualmente", valor = manualBlocks.toString(), onClick = { manageManualBlocks = true })
+                Text("Estos bloqueos tienen prioridad sobre los perfiles. Puedes gestionarlos aquí aunque hayas borrado las llamadas.",
+                    Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+            }
         }
 
         if (profile != null) {
@@ -193,6 +207,20 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
             }
         }
     }
+
+    if (manageManualBlocks) AlertDialog(onDismissRequest = { manageManualBlocks = false },
+        title = { Text("Bloqueados manualmente") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            val numbers = prefs.manualBlockedNumbers()
+            if (numbers.isEmpty()) Text("No hay números bloqueados manualmente.")
+            numbers.forEach { number ->
+                ListItem(headlineContent = { Text(number) }, trailingContent = {
+                    TextButton(onClick = { unblock = number }) { Text("Desbloquear") }
+                })
+            }
+        } }, confirmButton = { TextButton(onClick = { manageManualBlocks = false }) { Text("Cerrar") } })
+    unblock?.let { number -> Confirmar("¿Desbloquear $number?", "Se quitará el bloqueo manual; otras reglas de protección seguirán aplicándose.", "Desbloquear",
+        onConfirmar = { prefs.setManualBlock(number, false); unblock = null; onChanged() }, onCancelar = { unblock = null }) }
 
     when (verHistorial) {
         0 -> Historial(

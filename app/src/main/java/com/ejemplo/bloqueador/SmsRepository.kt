@@ -82,10 +82,33 @@ object SmsRepository {
         arrayOf(Telephony.Sms.THREAD_ID), null, null, null)?.use { if (it.moveToFirst()) it.getLong(0) else null }
 
     fun deleteThread(context: Context, thread: SmsThread): Int {
+        return deleteThreads(context, listOf(SmsDeletionTarget(thread.threadId, thread.last.id, thread.last.date)))
+    }
+
+    fun deleteThreads(context: Context, targets: List<SmsDeletionTarget>): Int {
         check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
-        return context.contentResolver.delete(Telephony.Sms.CONTENT_URI,
-            "${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms._ID}<=? AND ${Telephony.Sms.DATE}<=?",
-            arrayOf(thread.threadId.toString(), thread.last.id.toString(), thread.last.date.toString()))
+        val operations = targets.distinctBy { it.threadId }.map { target ->
+            android.content.ContentProviderOperation.newDelete(Telephony.Sms.CONTENT_URI)
+                .withSelection("${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms._ID}<=? AND ${Telephony.Sms.DATE}<=?",
+                    arrayOf(target.threadId.toString(), target.maxId.toString(), target.maxDate.toString())).build()
+        }
+        return operations.chunked(200).sumOf { context.contentResolver.applyBatch("sms", ArrayList(it)).sumOf { result -> result.count ?: 0 } }
+    }
+
+    fun deleteMessages(context: Context, messages: List<SmsMsg>): Int {
+        check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
+        val operations = messages.distinctBy { it.id }.map { message ->
+            android.content.ContentProviderOperation.newDelete(Telephony.Sms.CONTENT_URI)
+                .withSelection("${Telephony.Sms._ID}=? AND ${Telephony.Sms.DATE}=?", arrayOf(message.id.toString(), message.date.toString())).build()
+        }
+        return operations.chunked(200).sumOf { context.contentResolver.applyBatch("sms", ArrayList(it)).sumOf { result -> result.count ?: 0 } }
+    }
+
+    fun clearNotificationIfNoUnread(context: Context, threadId: Long) {
+        val unread = context.contentResolver.query(Telephony.Sms.CONTENT_URI, arrayOf(Telephony.Sms._ID),
+            "${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms.TYPE}=? AND ${Telephony.Sms.READ}=0",
+            arrayOf(threadId.toString(), Telephony.Sms.MESSAGE_TYPE_INBOX.toString()), null)?.use { it.moveToFirst() } ?: true
+        if (!unread) SmsNotifications.clear(context, threadId)
     }
 
     fun deleteMessage(context: Context, message: SmsMsg): Int {

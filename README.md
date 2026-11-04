@@ -20,6 +20,13 @@ otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y
   **Multimedia recibida** permite descargar y abrir el texto y los adjuntos de MMS.
 - **Protección:** te dice en una frase si estás protegido, los pasos que faltan, los ajustes y la actividad.
 
+Al tocar una llamada se abre un panel con **Llamada, WhatsApp, Editar y Bloquear**, además del acceso
+a SMS junto al número y su historial. No incluye pagos. Editar abre el contacto existente o el formulario
+para guardarlo. WhatsApp requiere el código de país del número (o que Android pueda deducirlo).
+El bloqueo manual se aplica a llamadas en todos los perfiles y tiene prioridad sobre sus excepciones;
+se revierte desde el mismo panel. El interruptor principal de llamadas permite pausarlo. No bloquea SMS.
+También se puede gestionar desde **Protección → Bloqueados manualmente**, incluso después de borrar el historial.
+
 La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
 
 ### Bloqueo
@@ -36,6 +43,13 @@ Requiere **Android 10 o superior**.
 
 ### Archivar y eliminar llamadas y mensajes
 
+Mantén pulsada una fila de llamadas o conversaciones para entrar en **selección múltiple**.
+Toca otras filas para añadirlas o quitarlas; la barra superior permite seleccionar los elementos visibles,
+cancelar y borrar con confirmación. En una conversación, mantener pulsada una burbuja permite seleccionar
+varios SMS individuales. Atrás o la X cancelan la selección. Los gestos de llamar/enviar se pausan mientras
+seleccionas. Los registros nuevos no se añaden solos a la selección y los SMS posteriores al corte se conservan.
+El borrado múltiple de SMS requiere que Bloqueador sea la app predeterminada.
+
 - En **Recientes**, abre el menú **⋮** de una fila para **Archivar**, **Desarchivar** o **Eliminar**.
   Si la fila agrupa varias llamadas, la acción afecta únicamente a los registros de ese grupo.
   El filtro **Archivadas** permite recuperarlas. Archivar solo las oculta en Bloqueador; las llamadas
@@ -47,7 +61,7 @@ Requiere **Android 10 o superior**.
   o **Eliminar**. El archivo es local a Bloqueador y se consulta desde **Archivadas**. Un SMS nuevo devuelve
   la conversación a la bandeja al actualizar; los mensajes no se borran y las notificaciones no cambian.
 - **Eliminar SMS** borra directamente desde Bloqueador si es tu app predeterminada, con confirmación.
-  Mantén pulsada una burbuja para eliminar un mensaje individual. Si no es la app predeterminada,
+  Mantén pulsada una burbuja para seleccionar uno o varios mensajes. Si no es la app predeterminada,
   se abre la app elegida en Android para completar allí el borrado.
 
 El archivo guarda referencias locales; no crea una copia de seguridad. Si borras los originales desde

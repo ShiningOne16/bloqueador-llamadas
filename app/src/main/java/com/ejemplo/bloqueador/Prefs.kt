@@ -29,6 +29,19 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ENABLED, true)
         set(v) = sp.edit().putBoolean(KEY_ENABLED, v).apply()
 
+    fun manuallyBlocked(number: String): Boolean = normalize(number).let {
+        it.isNotEmpty() && it in sp.getStringSet("manual_blocks", emptySet()).orEmpty()
+    }
+    fun manualBlockCount(): Int = sp.getStringSet("manual_blocks", emptySet()).orEmpty().size
+    fun manualBlockedNumbers(): List<String> = sp.getStringSet("manual_blocks", emptySet()).orEmpty().sorted()
+
+    fun setManualBlock(number: String, blocked: Boolean) {
+        val key = normalize(number)
+        require(key.length >= 7) { "No se puede bloquear un número oculto o incompleto" }
+        val current = sp.getStringSet("manual_blocks", emptySet()).orEmpty().toSet()
+        sp.edit().putStringSet("manual_blocks", if (blocked) current + key else current - key).apply()
+    }
+
     /** Bloquear llamadas con número oculto / privado / desconocido. */
     var blockHidden: Boolean
         get() = sp.getBoolean(KEY_BLOCK_HIDDEN, true)
@@ -122,3 +135,4 @@ class Prefs(context: Context) {
         fun normalize(number: String): String = number.filter { it.isDigit() }.takeLast(10)
     }
 }
+

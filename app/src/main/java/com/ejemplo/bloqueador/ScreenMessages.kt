@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,10 +53,14 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
     var composeAddress by rememberSaveable { mutableStateOf<String?>(null) }
     var composeBody by rememberSaveable { mutableStateOf("") }
     var multimedia by rememberSaveable { mutableStateOf(false) }
+    var selectedThreads by rememberSaveable { mutableStateOf(listOf<SmsDeletionTarget>()) }
+    var bulkDelete by remember { mutableStateOf<List<SmsDeletionTarget>?>(null) }
+    var busy by remember { mutableStateOf(false) }
     val changes = messageChanges(tienePermiso)
     val scope = rememberCoroutineScope()
     LaunchedEffect(request?.token) {
         request?.let {
+            selectedThreads = emptyList()
             multimedia = false
             if (it.compose) { composeAddress = it.address; composeBody = it.body; abiertoId = null }
             else { composeAddress = null; abiertoId = it.threadId }
@@ -77,9 +82,16 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 archive = current
                 archiveStore.save(current)
                 hilos = loaded
+                val available = loaded.filter { (it.archiveKey() in current.sms) == (filtro == 3) }
+                    .filter { when (filtro) { 1 -> it.unread > 0; 2 -> it.name == null; else -> true } }.map { it.threadId }.toSet()
+                selectedThreads = selectedThreads.filter { it.threadId in available }
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) { loadError = true; hilos = emptyList() }
         }
+    }
+    fun toggleThread(thread: SmsThread) {
+        selectedThreads = if (selectedThreads.any { it.threadId == thread.threadId }) selectedThreads.filterNot { it.threadId == thread.threadId }
+        else selectedThreads + SmsDeletionTarget(thread.threadId, thread.last.id, thread.last.date)
     }
 
     fun toggleArchive(thread: SmsThread) {
@@ -98,7 +110,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                     try {
                         withContext(Dispatchers.IO) { SmsRepository.deleteThread(context, thread) }
                         archive = archiveStore.read().restoreThread(thread.threadId); archiveStore.save(archive)
-                        SmsNotifications.clear(context, thread.threadId); abiertoId = null; recarga++
+                        withContext(Dispatchers.IO) { SmsRepository.clearNotificationIfNoUnread(context, thread.threadId) }; abiertoId = null; recarga++
                     } catch (_: Exception) { Toast.makeText(context, "No se pudo borrar. Comprueba que Bloqueador siga siendo la app de SMS predeterminada.", Toast.LENGTH_LONG).show() }
                 }
             }, onCancelar = { deleteThread = null })
@@ -111,6 +123,27 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             }) { Text("Abrir app SMS") } },
             dismissButton = { TextButton(onClick = { deleteThread = null }) { Text("Cancelar") } })
         }
+    }
+    bulkDelete?.let { targets ->
+        Confirmar("¿Eliminar ${targets.size} conversaciones?", "Se borrarán del teléfono los SMS anteriores a la selección. Los mensajes que lleguen después se conservarán. No se puede deshacer.", "Eliminar",
+            onConfirmar = {
+                bulkDelete = null; busy = true
+                scope.launch {
+                    try {
+                        val count = withContext(Dispatchers.IO) {
+                            val deleted = SmsRepository.deleteThreads(context, targets)
+                            targets.forEach { SmsRepository.clearNotificationIfNoUnread(context, it.threadId) }
+                            deleted
+                        }
+                        var current = archiveStore.read()
+                        targets.forEach { current = current.restoreThread(it.threadId) }
+                        archive = current; archiveStore.save(current); selectedThreads = emptyList()
+                        Toast.makeText(context, "$count SMS eliminados", Toast.LENGTH_LONG).show()
+                    } catch (e: CancellationException) { throw e
+                    } catch (_: Exception) { Toast.makeText(context, "No se pudo completar el borrado. Revisa los mensajes y la app de SMS predeterminada antes de reintentar.", Toast.LENGTH_LONG).show()
+                    } finally { busy = false; recarga++ }
+                }
+            }, onCancelar = { bulkDelete = null })
     }
     if (multimedia) { MmsInboxScreen(refreshKey, onClose = { multimedia = false }); return }
     composeAddress?.let { address ->
@@ -129,14 +162,22 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             onReply = { text -> composeAddress = abierto.address; composeBody = text })
         return
     }
+    val selectionMode = selectedThreads.isNotEmpty()
+    BackHandler(enabled = selectionMode && !busy) { selectedThreads = emptyList() }
+    val visibleThreads = hilos.orEmpty().filter { (it.archiveKey() in archive.sms) == (filtro == 3) }
+        .filter { when (filtro) { 1 -> it.unread > 0; 2 -> it.name == null; else -> true } }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             val sinLeer = hilos?.filter { it.archiveKey() !in archive.sms }?.sumOf { it.unread } ?: 0
-            Titulo("Mensajes", subtitulo = if (sinLeer > 0) "$sinLeer sin leer" else null)
+            if (selectionMode) SelectionToolbar(selectedThreads.size, onClose = { selectedThreads = emptyList() },
+                onSelectAll = { selectedThreads = visibleThreads.map { SmsDeletionTarget(it.threadId, it.last.id, it.last.date) } },
+                onDelete = { bulkDelete = selectedThreads.toList() }, enabled = !busy, canDelete = SmsRepository.isDefault(context))
+            else Titulo("Mensajes", subtitulo = if (sinLeer > 0) "$sinLeer sin leer" else null)
+            if (selectionMode && !SmsRepository.isDefault(context)) Text("Para borrar varios SMS, elige Bloqueador como app de SMS predeterminada.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
             Column(Modifier.padding(horizontal = Esp.l)) {
                 SmsSetupCard(refreshKey + recarga) { recarga++ }
-                TextButton(onClick = { multimedia = true }, enabled = tienePermiso) { Text("Multimedia recibida") }
+                if (!selectionMode) TextButton(onClick = { multimedia = true }, enabled = tienePermiso) { Text("Multimedia recibida") }
             }
 
             if (!tienePermiso) {
@@ -149,7 +190,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 return@Column
             }
 
-            Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
+            if (!selectionMode) Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
             if (filtro == 3) Text("Archivo local. Un SMS nuevo devuelve la conversación a la bandeja.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(Esp.s))
 
@@ -159,14 +200,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             } else if (lista == null) {
                 Cargando()
             } else {
-                val visibles = remember(lista, filtro, archive) {
-                    val bandeja = lista.filter { (it.archiveKey() in archive.sms) == (filtro == 3) }
-                    when (filtro) {
-                        1 -> bandeja.filter { it.unread > 0 }
-                        2 -> bandeja.filter { it.name == null }
-                        else -> bandeja
-                    }
-                }
+                val visibles = visibleThreads
                 if (visibles.isEmpty()) {
                     when (filtro) {
                         1 -> EstadoVacio(Icons.Filled.MarkEmailRead, "Todo leído", "No tienes mensajes pendientes.")
@@ -177,7 +211,9 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 } else {
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(visibles, key = { it.threadId }) { h ->
-                            FilaHilo(h, onClick = { abiertoId = h.threadId }, archived = filtro == 3,
+                            FilaHilo(h, onClick = { if (selectionMode) toggleThread(h) else abiertoId = h.threadId }, archived = filtro == 3,
+                                onLongClick = { toggleThread(h) }, selectionMode = selectionMode,
+                                isSelected = selectedThreads.any { it.threadId == h.threadId }, enabled = !busy,
                                 onArchive = { toggleArchive(h) }, onDelete = { deleteThread = h })
                         }
                     }
@@ -185,7 +221,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             }
         }
 
-        if (tienePermiso) {
+        if (tienePermiso && !selectionMode) {
             ExtendedFloatingActionButton(
                 onClick = { composeAddress = ""; composeBody = "" },
                 icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
@@ -217,12 +253,15 @@ private fun EtiquetaDesconocido() {
 }
 
 @Composable
-private fun FilaHilo(h: SmsThread, onClick: () -> Unit, archived: Boolean, onArchive: () -> Unit, onDelete: () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun FilaHilo(h: SmsThread, onClick: () -> Unit, archived: Boolean, onArchive: () -> Unit, onDelete: () -> Unit,
+    onLongClick: () -> Unit, selectionMode: Boolean, isSelected: Boolean, enabled: Boolean) {
     val titulo = h.name ?: h.address
     val noLeido = h.unread > 0
     ListItem(
-        modifier = Modifier.clickable(onClickLabel = "Abrir conversación", onClick = onClick),
-        leadingContent = { Avatar(titulo) },
+        modifier = Modifier.combinedClickable(enabled = enabled, onClickLabel = if (selectionMode) "Cambiar selección" else "Abrir conversación", onClick = onClick,
+            onLongClick = onLongClick, onLongClickLabel = "Seleccionar conversaciones").semantics { selected = isSelected },
+        leadingContent = { if (selectionMode) Checkbox(isSelected, onCheckedChange = null) else Avatar(titulo) },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
                 Text(
@@ -259,10 +298,10 @@ private fun FilaHilo(h: SmsThread, onClick: () -> Unit, archived: Boolean, onArc
                     ) { Text(h.unread.toString()) }
                 }
             }
-                HistoryMenu(archived, titulo, onArchive = onArchive, onDelete = onDelete)
+                if (!selectionMode) HistoryMenu(archived, titulo, enabled = enabled, onArchive = onArchive, onDelete = onDelete)
             }
         },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        colors = ListItemDefaults.colors(containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
     )
 }
 
@@ -271,11 +310,16 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
     val context = LocalContext.current
     var mensajes by remember { mutableStateOf<List<SmsMsg>?>(null) }
     val changes = messageChanges(PhoneData.has(context, Manifest.permission.READ_SMS))
-    var deleting by remember { mutableStateOf<SmsMsg?>(null) }
+    var deleting by remember { mutableStateOf<List<SmsMsg>?>(null) }
+    var selectedMessages by rememberSaveable(h.threadId) { mutableStateOf(listOf<String>()) }
+    var deletingBusy by remember { mutableStateOf(false) }
     var revision by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(h.threadId, refreshKey, changes, revision) {
-        try { mensajes = withContext(Dispatchers.IO) { PhoneData.loadConversation(context, h.threadId) } }
+        try {
+            mensajes = withContext(Dispatchers.IO) { PhoneData.loadConversation(context, h.threadId) }
+            selectedMessages = HistorySelection.prune(selectedMessages, mensajes.orEmpty().map { HistorySelection.key(it.id, it.date) })
+        }
         catch (_: Exception) { Toast.makeText(context, "No se pudieron cargar los SMS.", Toast.LENGTH_LONG).show() }
     }
     LaunchedEffect(h.threadId, mensajes?.firstOrNull()?.id, SmsRepository.isDefault(context)) {
@@ -285,8 +329,18 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
     }
     val titulo = h.name ?: h.address
     val esNumero = esNumeroTelefono(h.address)
+    val selectionMode = selectedMessages.isNotEmpty()
+    BackHandler(enabled = selectionMode && !deletingBusy) { selectedMessages = emptyList() }
+    fun toggleMessage(message: SmsMsg) { selectedMessages = HistorySelection.toggle(selectedMessages, listOf(HistorySelection.key(message.id, message.date))) }
 
     Column(Modifier.fillMaxSize()) {
+        if (selectionMode) {
+            SelectionToolbar(selectedMessages.size, onClose = { selectedMessages = emptyList() },
+                onSelectAll = { selectedMessages = mensajes.orEmpty().map { HistorySelection.key(it.id, it.date) } },
+                onDelete = { deleting = mensajes.orEmpty().filter { HistorySelection.key(it.id, it.date) in selectedMessages } },
+                enabled = !deletingBusy, canDelete = SmsRepository.isDefault(context))
+            if (!SmsRepository.isDefault(context)) Text("Elige Bloqueador como app de SMS predeterminada para borrar varios mensajes.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+        } else {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = Esp.xs, vertical = Esp.s),
@@ -312,6 +366,7 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
                 HistoryMenu(archived, titulo, onArchive = onArchive, onDelete = onDelete)
             }
         }
+        }
 
         val lista = mensajes
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -324,12 +379,16 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
                     contentPadding = PaddingValues(horizontal = Esp.m, vertical = Esp.l),
                     verticalArrangement = Arrangement.spacedBy(Esp.s)
                 ) {
-                    items(lista, key = { it.id }) { m -> Burbuja(m, onDelete = if (SmsRepository.isDefault(context)) ({ deleting = m }) else null, onRetry = { onReply(m.body) }) }
+                    items(lista, key = { it.id }) { m -> Burbuja(m,
+                        selectionMode = selectionMode, isSelected = HistorySelection.key(m.id, m.date) in selectedMessages,
+                        onClick = { if (selectionMode && !deletingBusy) toggleMessage(m) },
+                        onLongClick = { if (!deletingBusy) toggleMessage(m) },
+                        onRetry = { onReply(m.body) }) }
                 }
             }
         }
 
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        if (!selectionMode) Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Button(
                 onClick = { onReply("") },
                 enabled = SmsPolicy.recipient(h.address) != null,
@@ -341,24 +400,31 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
             }
         }
     }
-    deleting?.let { message -> Confirmar("¿Eliminar SMS?", "Se borrará este mensaje del teléfono. No se puede deshacer.", "Eliminar", onConfirmar = {
-        deleting = null
+    deleting?.let { messages -> Confirmar("¿Eliminar ${messages.size} SMS?", "Se borrarán únicamente los mensajes seleccionados. No se puede deshacer.", "Eliminar", onConfirmar = {
+        deleting = null; deletingBusy = true
         scope.launch {
-            try { withContext(Dispatchers.IO) { SmsRepository.deleteMessage(context, message) }; revision++ }
-            catch (_: Exception) { Toast.makeText(context, "No se pudo borrar el SMS.", Toast.LENGTH_LONG).show() }
+            try { withContext(Dispatchers.IO) { SmsRepository.deleteMessages(context, messages) }; selectedMessages = emptyList() }
+            catch (e: CancellationException) { throw e
+            } catch (_: Exception) { Toast.makeText(context, "No se pudo completar el borrado. Revisa los mensajes antes de reintentar.", Toast.LENGTH_LONG).show() }
+            finally { deletingBusy = false; revision++ }
         }
     }, onCancelar = { deleting = null }) }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Burbuja(m: SmsMsg, onDelete: (() -> Unit)?, onRetry: () -> Unit) {
+private fun Burbuja(m: SmsMsg, selectionMode: Boolean, isSelected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onRetry: () -> Unit) {
     val propio = !m.incoming
     val cs = MaterialTheme.colorScheme
-    var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start) {
+    Row(Modifier.fillMaxWidth()
+        .background(if (isSelected) cs.secondaryContainer else Color.Transparent)
+        .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Seleccionar mensajes")
+        .semantics { selected = isSelected },
+        horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically) {
+        if (selectionMode) Checkbox(isSelected, onCheckedChange = null)
         Column(
-            Modifier.widthIn(max = 300.dp)
+            Modifier.weight(1f, fill = false).widthIn(max = 300.dp)
                 .clip(
                     RoundedCornerShape(
                         topStart = 18.dp, topEnd = 18.dp,
@@ -367,7 +433,6 @@ private fun Burbuja(m: SmsMsg, onDelete: (() -> Unit)?, onRetry: () -> Unit) {
                     )
                 )
                 .background(if (propio) cs.primary else cs.surfaceContainerHigh)
-                .combinedClickable(onClick = {}, onLongClick = if (onDelete != null) ({ menu = true }) else null)
                 .padding(horizontal = Esp.m, vertical = Esp.s)
                 .semantics(mergeDescendants = true) { }
         ) {
@@ -387,11 +452,8 @@ private fun Burbuja(m: SmsMsg, onDelete: (() -> Unit)?, onRetry: () -> Unit) {
                 color = if (propio) cs.onPrimary.copy(alpha = 0.85f) else cs.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.End).padding(top = 2.dp)
             )
-            if (m.type == android.provider.Telephony.Sms.MESSAGE_TYPE_FAILED) TextButton(onClick = onRetry,
+            if (!selectionMode && m.type == android.provider.Telephony.Sms.MESSAGE_TYPE_FAILED) TextButton(onClick = onRetry,
                 colors = ButtonDefaults.textButtonColors(contentColor = if (propio) cs.onPrimary else cs.primary)) { Text("Revisar y reenviar") }
-            DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Eliminar SMS") }, onClick = { menu = false; onDelete?.invoke() })
-            }
         }
     }
 }

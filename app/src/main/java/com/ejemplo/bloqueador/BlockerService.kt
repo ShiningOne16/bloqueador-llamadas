@@ -42,6 +42,12 @@ class BlockerService : CallScreeningService() {
         val hidden = number.isEmpty() ||
             details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
 
+        if (!hidden && prefs.manuallyBlocked(number)) {
+            val last = prefs.lastBlockedAt(number)
+            if (last == null || now - last >= RETRY_WINDOW_MS) prefs.addBlocked(number, now)
+            return true
+        }
+
         val profile = PremiumStore(this).read().activeProfile
         when (PremiumRules.callDecision(profile, number, hidden, LocalDateTime.now())) {
             CallDecision.ALLOW -> return false
