@@ -6,6 +6,7 @@ import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import java.time.LocalDateTime
 
 /**
  * Lee las notificaciones de la app de mensajes. Si el SMS viene de alguien que no está
@@ -27,6 +28,8 @@ class SmsNotificationListener : NotificationListenerService() {
 
         val prefs = Prefs(this)
         if (!prefs.smsEnabled) return
+        val profile = PremiumStore(this).read().activeProfile
+        if (profile != null && (!profile.silenceUnknownSms || !profile.schedule.contains(LocalDateTime.now()))) return
         // Sin permiso de contactos no sabemos quién es conocido: no tocamos nada
         if (!Contacts.hasPermission(this)) return
 
@@ -38,7 +41,7 @@ class SmsNotificationListener : NotificationListenerService() {
         if (extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION)) return
 
         val (sender, text) = senderAndText(n) ?: return
-        if (!isUnknownSender(sender, prefs.smsIncludeBusiness)) return
+        if (!isUnknownSender(sender, profile?.includeBusinessSms ?: prefs.smsIncludeBusiness)) return
 
         cancelNotification(sbn.key)
         prefs.addSilencedSms(sender, text, System.currentTimeMillis())
@@ -101,3 +104,4 @@ class SmsNotificationListener : NotificationListenerService() {
         )
     }
 }
+

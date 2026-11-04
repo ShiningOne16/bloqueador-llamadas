@@ -140,7 +140,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
     }
 
     if (premiumAbierto) {
-        PantallaPremium(onCerrar = { premiumAbierto = false })
+        PantallaPremium(onCerrar = { premiumAbierto = false }, onChanged = onChanged)
         return
     }
 
@@ -190,7 +190,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
                 when (seccion) {
                     Seccion.RECIENTES -> PantallaTelefono(refreshKey, pedirPermisos) { seccion = Seccion.PROTECCION }
                     Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos)
-                    Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos)
+                    Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos) { premiumAbierto = true }
                 }
             }
         }
