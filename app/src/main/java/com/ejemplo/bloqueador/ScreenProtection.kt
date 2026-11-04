@@ -54,11 +54,14 @@ fun estadoConfig(context: Context): EstadoConfig {
 }
 
 @Composable
-fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: () -> Unit) {
+fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: () -> Unit, abrirPremium: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { Prefs(context) }
     val roleManager = remember { context.getSystemService(RoleManager::class.java) }
     val estado = remember(refreshKey) { estadoConfig(context) }
+    val profile = remember(refreshKey) { PremiumStore(context).read().activeProfile }
+    val now = currentProtectionTime()
+    val inSchedule = profile?.schedule?.contains(now) ?: true
 
     var llamadasActivo by remember { mutableStateOf(prefs.enabled) }
     var ocultos by remember { mutableStateOf(prefs.blockHidden) }
@@ -80,9 +83,27 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
 
         item {
             Resumen(
-                estado, llamadasActivo, smsActivo,
+                estado,
+                llamadasActivo && (profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden)) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
+                smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms)),
                 Modifier.padding(horizontal = Esp.l, vertical = Esp.s)
             )
+        }
+
+        if (profile != null) {
+            item {
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    FilaAccion(Icons.Filled.Shield, "Perfil: ${profile.name}", valor = "Editar", onClick = abrirPremium)
+                    Text(
+                        scheduleDescription(profile.schedule) + "\n" +
+                            (if (inSchedule) "Dentro del horario." else "Fuera del horario: solo se aplican las excepciones de llamadas.") +
+                            " Los ajustes específicos se cambian en Premium.",
+                        modifier = Modifier.padding(start = Esp.l, end = Esp.l, bottom = Esp.l),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         if (estado.faltan > 0) {
@@ -122,19 +143,20 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
         item {
             Tarjeta(Modifier.padding(horizontal = Esp.l)) {
                 FilaInterruptor(
-                    Icons.Filled.PhoneDisabled, "Bloquear desconocidos",
-                    "Rechaza llamadas de números que no están en tus contactos.", llamadasActivo
+                    Icons.Filled.PhoneDisabled, if (profile == null) "Bloquear desconocidos" else "Filtrar llamadas",
+                    if (profile == null) "Rechaza llamadas de números que no están en tus contactos."
+                    else "Activa o pausa todas las reglas y excepciones del perfil.", llamadasActivo
                 ) { llamadasActivo = it; prefs.enabled = it }
                 Separador()
                 FilaInterruptor(
                     Icons.Filled.VisibilityOff, "Bloquear números ocultos",
-                    "Llamadas privadas o sin número.", ocultos, habilitado = llamadasActivo
+                    "Llamadas privadas o sin número.", profile?.blockHidden ?: ocultos, habilitado = llamadasActivo && profile == null
                 ) { ocultos = it; prefs.blockHidden = it }
                 Separador()
                 FilaInterruptor(
                     Icons.Filled.Repeat, "Dejar pasar si insisten",
                     "Si cuelgan y vuelven a marcar en menos de 3 minutos, sonará. Útil para urgencias.",
-                    insisten, habilitado = llamadasActivo
+                    profile?.allowRepeat ?: insisten, habilitado = llamadasActivo && profile == null
                 ) { insisten = it; prefs.allowRepeat = it }
             }
         }
@@ -143,14 +165,15 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
         item {
             Tarjeta(Modifier.padding(horizontal = Esp.l)) {
                 FilaInterruptor(
-                    Icons.Filled.NotificationsOff, "Silenciar desconocidos",
-                    "Los SMS llegan a tu app de mensajes, pero sin sonar ni avisar.", smsActivo
+                    Icons.Filled.NotificationsOff, if (profile == null) "Silenciar desconocidos" else "Filtrar SMS",
+                    if (profile == null) "Los SMS llegan a tu app de mensajes, pero sin sonar ni avisar."
+                    else "Activa o pausa el silenciamiento de SMS según el perfil y su horario.", smsActivo
                 ) { smsActivo = it; prefs.smsEnabled = it }
                 Separador()
                 FilaInterruptor(
                     Icons.Filled.Business, "Incluir empresas",
                     "Bancos, compañías y códigos cortos. Ojo: también silencia códigos de verificación.",
-                    empresas, habilitado = smsActivo
+                    profile?.includeBusinessSms ?: empresas, habilitado = smsActivo && profile == null
                 ) { empresas = it; prefs.smsIncludeBusiness = it }
             }
         }
@@ -355,3 +378,4 @@ private fun abrir(context: Context, intent: Intent) {
     } catch (_: Exception) {
     }
 }
+

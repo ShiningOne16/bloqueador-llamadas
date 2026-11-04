@@ -24,7 +24,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          if ! ./gradlew assembleRelease --console=plain 2>&1 | tee build.log; then
+          if ! ./gradlew testDebugUnitTest assembleRelease --console=plain 2>&1 | tee build.log; then
             # Muestra los errores como avisos en la página de la compilación
             grep -E "^e: |ERROR:|error:" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
@@ -51,3 +51,4 @@ jobs:
           body: Descarga **Bloqueador.apk** e instálalo en tu teléfono (Android 10 o superior).
           files: Bloqueador.apk
           make_latest: true
+

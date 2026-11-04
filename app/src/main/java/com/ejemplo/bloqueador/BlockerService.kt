@@ -5,6 +5,7 @@ import android.telecom.CallScreeningService
 import android.telecom.TelecomManager
 import android.util.Log
 import kotlin.concurrent.thread
+import java.time.LocalDateTime
 
 /**
  * Android llama a este servicio antes de que suene cada llamada entrante.
@@ -41,6 +42,18 @@ class BlockerService : CallScreeningService() {
         val hidden = number.isEmpty() ||
             details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
 
+        val profile = PremiumStore(this).read().activeProfile
+        when (PremiumRules.callDecision(profile, number, hidden, LocalDateTime.now())) {
+            CallDecision.ALLOW -> return false
+            CallDecision.BLOCK -> {
+                val label = if (hidden) getString(R.string.hidden_number) else number
+                val last = prefs.lastBlockedAt(label)
+                if (last == null || now - last >= RETRY_WINDOW_MS) prefs.addBlocked(label, now)
+                return true
+            }
+            CallDecision.DEFAULT -> Unit
+        }
+
         if (hidden) {
             if (!prefs.blockHidden) return false
             val etiqueta = getString(R.string.hidden_number)
@@ -62,7 +75,7 @@ class BlockerService : CallScreeningService() {
         }
 
         // "Dejar pasar si insisten": solo cuenta si la persona colgó y volvió a marcar después.
-        if (prefs.allowRepeat && last != null && now - last <= REPEAT_WINDOW_MS) {
+        if ((profile?.allowRepeat ?: prefs.allowRepeat) && last != null && now - last <= REPEAT_WINDOW_MS) {
             Log.i(TAG, "$number volvió a llamar: se deja pasar")
             return false
         }
@@ -88,3 +101,4 @@ class BlockerService : CallScreeningService() {
         const val REPEAT_WINDOW_MS = 3 * 60 * 1000L // 3 minutos
     }
 }
+

@@ -34,9 +34,32 @@ Requiere **Android 10 o superior**.
 
 ### Premium
 
-El botón **Premium**, visible en las tres secciones principales, abre una pantalla de presentación
-con el estado **Próximamente**. Las funciones de pago y su precio están pendientes de definición;
-todavía no se realizan compras ni se restringen las funciones actuales.
+El botón **Premium**, visible en las tres secciones principales, abre la **vista previa gratuita** de:
+
+- **Horarios de protección:** elige días de la semana y horas de inicio y fin para llamadas y SMS.
+  Se usa la hora local del teléfono. Un turno nocturno continúa al día siguiente: lunes 22:00–07:00
+  incluye el martes hasta las 07:00. Horas iguales significan las 24 horas del día seleccionado.
+- **Excepciones de llamadas:** permite números aunque no estén en contactos o bloquea números aunque
+  estén guardados. Las reglas son por número completo (comparado por los últimos 10 dígitos), sin prefijos.
+  Se aplican incluso fuera del horario del perfil; no se aplican a SMS ni a números ocultos.
+- **Perfiles:** Trabajo, Noche y Vacaciones vienen preparados. Puedes editarlos, crear otros, eliminarlos
+  y seleccionar uno a la vez. Cada perfil guarda su horario, excepciones y reglas de llamadas y SMS.
+
+Al instalar o actualizar, sigue seleccionada **Protección básica**: no cambia el bloqueo hasta que elijas
+un perfil. Puedes volver a Protección básica en cualquier momento. Fuera del horario del perfil se
+permiten llamadas y avisos de SMS, salvo las excepciones de llamadas. Los interruptores principales de
+**Protección** pausan todas las reglas del canal correspondiente, incluidas las excepciones de llamadas.
+Un bloqueo explícito no se anula al volver a llamar. Los perfiles y borradores del editor se guardan localmente.
+
+El modelo comercial será una **suscripción mensual**. El cobro, el precio y la verificación de compras
+todavía no están configurados: esta versión permite probar las funciones y no realiza cargos.
+
+### Verificación
+
+GitHub Actions ejecuta `testDebugUnitTest` y `assembleRelease`, verifica la firma y adjunta el APK.
+Las pruebas cubren límites de horario, turnos nocturnos, cambio de semana, excepciones, selección
+de perfiles y conservación del borrador al recrear la actividad. Antes de distribuir, prueba llamadas
+reales y notificaciones SMS en un dispositivo con el rol de filtrado y los permisos concedidos.
 
 ## Cómo obtener el APK
 
@@ -76,7 +99,9 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `Prefs.kt` – ajustes y registro de llamadas bloqueadas.
 - `MainActivity.kt` – navegación entre pestañas (Jetpack Compose).
 - `ScreenPhone.kt` – submenú de Recientes, Contactos, Favoritos y Marcar.
-- `ScreenPremium.kt` – presentación de Premium y regreso a la pantalla anterior.
+- `ScreenPremium.kt` – selección y edición de perfiles, horarios y excepciones.
+- `PremiumRules.kt` – reglas de horario y prioridad de excepciones, sin dependencias de Android.
+- `PremiumStore.kt` – persistencia local de perfiles y selección activa.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
 - `ScreenRecents.kt`, `ScreenContacts.kt`, `ScreenKeypad.kt`, `ScreenMessages.kt`, `ScreenProtection.kt` – cada pestaña.
 - `Theme.kt` – sistema de diseño (colores, tipografía, formas, espaciado).
