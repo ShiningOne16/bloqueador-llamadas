@@ -39,6 +39,11 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
 - **Horarios de protección:** elige días de la semana y horas de inicio y fin para llamadas y SMS.
   Se usa la hora local del teléfono. Un turno nocturno continúa al día siguiente: lunes 22:00–07:00
   incluye el martes hasta las 07:00. Horas iguales significan las 24 horas del día seleccionado.
+- **Contactos por horario:** desde el editor de un perfil, pulsa **Elegir de mi agenda** para buscar
+  y seleccionar los números que se rechazarán solo durante sus días y horas. Puedes elegir cada teléfono
+  de un contacto por separado. Fuera de ese horario vuelven a entrar; las excepciones de "siempre"
+  conservan prioridad y el editor avisa si alguna afecta al número seleccionado. Sin horario, el bloqueo
+  de esos contactos se aplica todo el día. No cambia sus SMS ni modifica tu agenda.
 - **Excepciones de llamadas:** permite números aunque no estén en contactos o bloquea números aunque
   estén guardados. Las reglas son por número completo (comparado por los últimos 10 dígitos), sin prefijos.
   Se aplican incluso fuera del horario del perfil; no se aplican a SMS ni a números ocultos.
@@ -100,6 +105,7 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `MainActivity.kt` – navegación entre pestañas (Jetpack Compose).
 - `ScreenPhone.kt` – submenú de Recientes, Contactos, Favoritos y Marcar.
 - `ScreenPremium.kt` – selección y edición de perfiles, horarios y excepciones.
+- `ScreenScheduledContacts.kt` – selección y búsqueda de números de la agenda para bloquear por horario.
 - `PremiumRules.kt` – reglas de horario y prioridad de excepciones, sin dependencias de Android.
 - `PremiumStore.kt` – persistencia local de perfiles y selección activa.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).

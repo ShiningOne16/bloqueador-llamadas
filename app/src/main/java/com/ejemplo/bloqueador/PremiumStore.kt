@@ -18,6 +18,7 @@ class PremiumStore(context: Context) {
                 val s = p.getJSONObject("schedule")
                 val days = s.getJSONArray("days")
                 val exceptions = p.optJSONArray("exceptions") ?: JSONArray()
+                val contacts = p.optJSONArray("scheduledContacts") ?: JSONArray()
                 ProtectionProfile(
                     id = p.getString("id"), name = p.getString("name"),
                     blockUnknown = p.optBoolean("blockUnknown", true),
@@ -33,6 +34,10 @@ class PremiumStore(context: Context) {
                     exceptions = (0 until exceptions.length()).map { i ->
                         val e = exceptions.getJSONObject(i)
                         NumberException(e.getString("number"), e.optString("label"), NumberAction.valueOf(e.getString("action")))
+                    }.filter { PremiumRules.validNumber(it.number) }.distinctBy { PremiumRules.numberKey(it.number) },
+                    scheduledContacts = (0 until contacts.length()).map { i ->
+                        val c = contacts.getJSONObject(i)
+                        ScheduledContact(c.getString("number"), c.optString("name"))
                     }.filter { PremiumRules.validNumber(it.number) }.distinctBy { PremiumRules.numberKey(it.number) }
                 )
             }
@@ -55,7 +60,10 @@ class PremiumStore(context: Context) {
                 .put("silenceUnknownSms", p.silenceUnknownSms).put("includeBusinessSms", p.includeBusinessSms)
                 .put("schedule", JSONObject().put("enabled", p.schedule.enabled)
                     .put("days", JSONArray(p.schedule.days.sorted())).put("start", p.schedule.startMinute).put("end", p.schedule.endMinute))
-                .put("exceptions", exceptions))
+                .put("exceptions", exceptions)
+                .put("scheduledContacts", JSONArray().also { contacts ->
+                    p.scheduledContacts.forEach { c -> contacts.put(JSONObject().put("number", c.number).put("name", c.name)) }
+                }))
         }
         prefs.edit().putString("configuration", JSONObject().put("profiles", profiles)
             .put("active", configuration.activeProfileId ?: "").toString()).apply()

@@ -30,6 +30,7 @@ data class ProtectionSchedule(
 
 enum class NumberAction { ALLOW, BLOCK }
 data class NumberException(val number: String, val label: String = "", val action: NumberAction) : java.io.Serializable
+data class ScheduledContact(val number: String, val name: String) : java.io.Serializable
 
 data class ProtectionProfile(
     val id: String,
@@ -40,7 +41,8 @@ data class ProtectionProfile(
     val silenceUnknownSms: Boolean = true,
     val includeBusinessSms: Boolean = false,
     val schedule: ProtectionSchedule = ProtectionSchedule(),
-    val exceptions: List<NumberException> = emptyList()
+    val exceptions: List<NumberException> = emptyList(),
+    val scheduledContacts: List<ScheduledContact> = emptyList()
 ) : java.io.Serializable
 
 data class PremiumConfiguration(
@@ -77,6 +79,9 @@ object PremiumRules {
         }
         if (!profile.schedule.contains(time)) return CallDecision.ALLOW
         if (hidden) return if (profile.blockHidden) CallDecision.BLOCK else CallDecision.ALLOW
+        if (validNumber(number) && profile.scheduledContacts.any { numberKey(it.number) == numberKey(number) }) {
+            return CallDecision.BLOCK
+        }
         return if (profile.blockUnknown) CallDecision.DEFAULT else CallDecision.ALLOW
     }
 }

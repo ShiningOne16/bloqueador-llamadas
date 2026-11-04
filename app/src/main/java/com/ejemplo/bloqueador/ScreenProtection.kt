@@ -84,7 +84,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
         item {
             Resumen(
                 estado,
-                llamadasActivo && (profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden)) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
+                llamadasActivo && (profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
                 smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms)),
                 Modifier.padding(horizontal = Esp.l, vertical = Esp.s)
             )
