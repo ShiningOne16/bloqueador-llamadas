@@ -9,6 +9,14 @@ import android.provider.ContactsContract
 /** Consultas a la agenda del teléfono. */
 object Contacts {
 
+    fun findContactId(context: Context, number: String): Long? {
+        if (!hasPermission(context) || number.isBlank()) return null
+        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
+        return context.contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup._ID), null, null, null)?.use {
+            if (it.moveToFirst()) it.getLong(0) else null
+        }
+    }
+
     fun hasPermission(context: Context) =
         context.checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
 
@@ -38,3 +46,4 @@ object Contacts {
         return false
     }
 }
+
