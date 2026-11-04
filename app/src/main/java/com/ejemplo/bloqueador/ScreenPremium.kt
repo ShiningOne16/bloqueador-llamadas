@@ -3,6 +3,7 @@ package com.ejemplo.bloqueador
 import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -109,37 +110,55 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item {
-                // Una sola lista: protección básica y cada perfil, con editar y eliminar en su fila.
+                // Lista desplegable: se ve solo el perfil seleccionado y al tocarla aparecen los demás.
+                var abierto by remember { mutableStateOf(false) }
+                val activo = configuration.activeProfile
                 Tarjeta {
-                    ProfileChoice("Protección básica", "Usar los ajustes de la pestaña Protección",
-                        configuration.activeProfileId == null) { save(configuration.copy(activeProfileId = null)) }
-                    configuration.profiles.forEach { profile ->
-                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
-                        ProfileChoice(
-                            profile.name,
-                            resumenPerfil(profile),
-                            configuration.activeProfileId == profile.id,
-                            trailing = {
-                                var menu by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { menu = true }) {
-                                        Icon(Icons.Filled.MoreVert, contentDescription = "Opciones del perfil ${profile.name}")
-                                    }
-                                    DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                                        DropdownMenuItem(
-                                            text = { Text("Editar") },
-                                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                                            onClick = { menu = false; editing = profile }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
-                                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                            onClick = { menu = false; deleting = profile }
-                                        )
-                                    }
+                    Box {
+                        ListItem(
+                            modifier = Modifier.clickable(role = Role.DropdownList, onClickLabel = "Cambiar de perfil") { abierto = true },
+                            overlineContent = { Text("Perfil") },
+                            headlineContent = { Text(activo?.name ?: "Protección básica", style = MaterialTheme.typography.titleMedium) },
+                            supportingContent = {
+                                Text(
+                                    if (activo == null) "Usar los ajustes de la pestaña Protección" else resumenPerfil(activo),
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingContent = {
+                                Icon(if (abierto) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown, contentDescription = null)
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        DropdownMenu(abierto, onDismissRequest = { abierto = false }, modifier = Modifier.widthIn(min = 280.dp)) {
+                            PerfilOpcion("Protección básica", "Usar los ajustes de la pestaña Protección", activo == null) {
+                                abierto = false; save(configuration.copy(activeProfileId = null))
+                            }
+                            configuration.profiles.forEach { profile ->
+                                PerfilOpcion(profile.name, resumenPerfil(profile), activo?.id == profile.id) {
+                                    abierto = false; save(configuration.copy(activeProfileId = profile.id))
                                 }
                             }
-                        ) { save(configuration.copy(activeProfileId = profile.id)) }
+                        }
+                    }
+                    if (activo != null) {
+                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(Modifier.fillMaxWidth().padding(horizontal = Esp.s), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { editing = activo }, modifier = Modifier.heightIn(min = 48.dp)) {
+                                Icon(Icons.Filled.Edit, contentDescription = null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(Esp.s))
+                                Text("Editar")
+                            }
+                            TextButton(
+                                onClick = { deleting = activo },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Filled.Delete, contentDescription = null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(Esp.s))
+                                Text("Eliminar")
+                            }
+                        }
                     }
                 }
             }
@@ -189,25 +208,33 @@ private fun resumenPerfil(p: ProtectionProfile): String {
 }
 
 @Composable
-private fun ProfileChoice(
-    title: String, description: String, selected: Boolean,
-    trailing: @Composable RowScope.() -> Unit = {}, onClick: () -> Unit
-) {
-    Row(Modifier.fillMaxWidth().padding(end = Esp.xs), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier.weight(1f).selectable(selected, role = Role.RadioButton, onClick = onClick).padding(Esp.m),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Esp.m)
-        ) {
-            RadioButton(selected = selected, onClick = null)
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun ProfileChoice(title: String, description: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().selectable(selected, role = Role.RadioButton, onClick = onClick).padding(Esp.m),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Esp.m)
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PerfilOpcion(titulo: String, descripcion: String, seleccionado: Boolean, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(titulo, style = MaterialTheme.typography.titleSmall)
+                Text(descripcion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-        }
-        trailing()
-    }
+        },
+        trailingIcon = { if (seleccionado) Icon(Icons.Filled.Check, contentDescription = "Seleccionado", tint = MaterialTheme.colorScheme.primary) },
+        onClick = onClick
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
