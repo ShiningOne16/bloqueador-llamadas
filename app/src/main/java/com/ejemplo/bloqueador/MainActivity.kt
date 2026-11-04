@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PhoneDisabled
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PhoneAndroid
@@ -38,7 +39,8 @@ import androidx.compose.ui.unit.dp
 enum class Seccion(val titulo: String, val icono: ImageVector, val iconoActivo: ImageVector) {
     RECIENTES("Recientes", Icons.Outlined.History, Icons.Filled.History),
     MENSAJES("Mensajes", Icons.Outlined.Sms, Icons.Filled.Sms),
-    PROTECCION("Protección", Icons.Outlined.Shield, Icons.Filled.Shield)
+    PROTECCION("Protección", Icons.Outlined.Shield, Icons.Filled.Shield),
+    PREMIUM("Premium", Icons.Outlined.WorkspacePremium, Icons.Filled.WorkspacePremium)
 }
 
 /** Abre el formulario de contacto desde cualquier pantalla. */
@@ -73,7 +75,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
     val prefs = remember { Prefs(context) }
     var seccion by rememberSaveable { mutableStateOf(Seccion.RECIENTES) }
     var bienvenida by rememberSaveable { mutableStateOf(!prefs.bienvenidaVista) }
-    var premiumAbierto by rememberSaveable { mutableStateOf(false) }
+    var regresoDePremium by rememberSaveable { mutableStateOf(Seccion.RECIENTES) }
     val pantallas = rememberSaveableStateHolder()
 
     val pedir = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onChanged() }
@@ -139,42 +141,19 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         return
     }
 
-    if (premiumAbierto) {
-        PantallaPremium(onCerrar = { premiumAbierto = false }, onChanged = onChanged)
-        return
-    }
-
     CompositionLocalProvider(LocalAbrirFormulario provides abrirFormulario) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Surface(color = MaterialTheme.colorScheme.background) {
-                Row(
-                    Modifier.fillMaxWidth().statusBarsPadding()
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                        .padding(horizontal = Esp.l, vertical = Esp.xs),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Bloqueador", style = MaterialTheme.typography.titleMedium)
-                    FilledTonalButton(
-                        onClick = { premiumAbierto = true },
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) {
-                        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(Esp.s))
-                        Text("Premium")
-                    }
-                }
-            }
-        },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 Seccion.entries.forEach { s ->
                     val activo = seccion == s
                     NavigationBarItem(
                         selected = activo,
-                        onClick = { seccion = s },
+                        onClick = {
+                            if (s == Seccion.PREMIUM && seccion != Seccion.PREMIUM) regresoDePremium = seccion
+                            seccion = s
+                        },
                         icon = { Icon(if (activo) s.iconoActivo else s.icono, contentDescription = null) },
                         label = { Text(s.titulo, maxLines = 1) },
                         alwaysShowLabel = true
@@ -190,7 +169,11 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
                 when (seccion) {
                     Seccion.RECIENTES -> PantallaTelefono(refreshKey, pedirPermisos) { seccion = Seccion.PROTECCION }
                     Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos)
-                    Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos) { premiumAbierto = true }
+                    Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos) {
+                        regresoDePremium = Seccion.PROTECCION
+                        seccion = Seccion.PREMIUM
+                    }
+                    Seccion.PREMIUM -> PantallaPremium(onCerrar = { seccion = regresoDePremium }, onChanged = onChanged)
                 }
             }
         }
