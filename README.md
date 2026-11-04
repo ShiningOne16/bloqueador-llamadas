@@ -15,7 +15,9 @@ otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y
 - **Contactos:** tu agenda con búsqueda en píldora (sin importar acentos), favoritos, filtro por origen, botón **+** para crear y los mismos gestos de deslizar para llamar o mandar SMS. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
 - **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
-- **Mensajes:** tus SMS por conversación, con filtros de no leídos y desconocidos. "Responder" abre tu app de SMS.
+- **Mensajes:** SMS por conversación, redacción y respuestas dentro de Bloqueador, borradores, elección de SIM,
+  estado de envío y filtros. Si eliges Bloqueador como app predeterminada, recibe, guarda y elimina SMS.
+  **Multimedia recibida** permite descargar y abrir el texto y los adjuntos de MMS.
 - **Protección:** te dice en una frase si estás protegido, los pasos que faltan, los ajustes y la actividad.
 
 La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
@@ -44,11 +46,42 @@ Requiere **Android 10 o superior**.
 - En **Mensajes**, el menú **⋮** de una conversación y el de su cabecera permiten **Archivar**, **Desarchivar**
   o **Eliminar**. El archivo es local a Bloqueador y se consulta desde **Archivadas**. Un SMS nuevo devuelve
   la conversación a la bandeja al actualizar; los mensajes no se borran y las notificaciones no cambian.
-- **Eliminar SMS** abre tu app de mensajes predeterminada para que completes allí la eliminación.
-  Android solo permite borrar SMS a esa app: Bloqueador explica este paso y no simula que los ha borrado.
+- **Eliminar SMS** borra directamente desde Bloqueador si es tu app predeterminada, con confirmación.
+  Mantén pulsada una burbuja para eliminar un mensaje individual. Si no es la app predeterminada,
+  se abre la app elegida en Android para completar allí el borrado.
 
 El archivo guarda referencias locales; no crea una copia de seguridad. Si borras los originales desde
 otra app, dejan de estar disponibles también en Archivadas. Archivar o desarchivar no exige permisos de escritura.
+
+### Usar Bloqueador como app de SMS
+
+1. Abre **Mensajes → Usar como app de SMS** y confirma la elección en el diálogo de Android.
+2. Concede los permisos de SMS y, si quieres recibir avisos, el de notificaciones. **Mostrar mis SIM**
+   permite elegir la línea de envío cuando hay varias tarjetas. Sin cambiar la app predeterminada,
+   Bloqueador sigue funcionando como lector y bloqueador de llamadas.
+3. Pulsa **Nuevo** o **Responder**, escribe el texto, comprueba la SIM y pulsa **Enviar SMS**.
+   Nunca se envía un mensaje solo por abrir un enlace o una conversación.
+
+Los SMS existentes permanecen en la base de datos de Android. La recepción guarda primero una cola
+local duradera, incluso antes del desbloqueo. Los SMS se incorporan durante la entrega del sistema y
+WorkManager recupera los pendientes. Las confirmaciones
+de cada parte de un SMS largo se guardan en SQLite. **Enviado** significa que el teléfono aceptó todas las
+partes, no que el destinatario las recibió. Los fallos y los envíos sin confirmar no se reintentan solos;
+revisa el texto antes de reenviar, ya que algunas partes pueden haber llegado. Máximo: 10 partes por envío.
+
+Los borradores se conservan localmente. Las notificaciones de SMS desconocidos se deciden antes de
+publicarlas cuando Bloqueador es la app predeterminada, respetando los perfiles y horarios. En este modo
+no hace falta acceso a las notificaciones de otras apps para silenciar sus propios SMS.
+
+La recepción de MMS utiliza el transporte del operador: guarda los avisos, descarga con la API de Android
+y conserva las descargas fallidas para reintentar desde **Multimedia recibida**. Los adjuntos se abren con
+un visor instalado mediante permisos temporales de archivo. Esta versión envía **SMS de texto a un solo
+destinatario**; no envía fotos/MMS, no ofrece grupos MMS ni RCS. Los MMS recibidos tienen su propia vista.
+Los costos de SMS y datos dependen del operador. Puedes cambiar de app predeterminada desde Android.
+
+Antes de usar esta versión como app principal, hay que comprobar en un teléfono real: recepción con la
+app cerrada y tras reiniciar, SIM doble, SMS largos, modo avión/fallos, notificaciones denegadas y recepción
+de MMS según el operador. Las pruebas automatizadas no sustituyen esa validación de módem y red.
 
 ### Premium
 
@@ -102,7 +135,8 @@ reales y notificaciones SMS en un dispositivo con el rol de filtrado y los permi
 1. Abre la app.
 2. Pulsa **Activar filtrado** y elige *Bloqueador* como app de filtrado de llamadas / spam.
 3. Acepta los permisos que pide al abrir (contactos, registro de llamadas, teléfono y SMS).
-4. En la pestaña **Mensajes**, toca **Dar acceso a notificaciones** y activa *Bloqueador*.
+4. En **Mensajes**, elige **Usar como app de SMS** para enviar, recibir y borrar dentro de Bloqueador.
+   Si prefieres mantener otra app de SMS, activa Bloqueador en **Acceso a notificaciones** para silenciar sus avisos.
    Si Android dice "Configuración restringida": abre la info de la app → menú ⋮ → *Permitir configuración restringida*.
 5. Listo. Puedes cerrar la app.
 

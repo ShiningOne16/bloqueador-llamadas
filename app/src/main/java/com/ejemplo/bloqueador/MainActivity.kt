@@ -1,6 +1,7 @@
 package com.ejemplo.bloqueador
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -50,14 +51,17 @@ class MainActivity : ComponentActivity() {
 
     // Se incrementa al volver a la app para recargar registro, contactos y mensajes
     private val refresh = mutableIntStateOf(0)
+    private val smsRequest = mutableStateOf<SmsOpenRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) smsRequest.value = SmsNavigation.parse(intent)
+        SmsInboxQueue.enqueue(this)
         enableEdgeToEdge()
         setContent {
             TemaBloqueador {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    App(refresh.intValue) { refresh.intValue++ }
+                    App(refresh.intValue, onChanged = { refresh.intValue++ }, smsRequest = smsRequest.value, onSmsConsumed = { smsRequest.value = null })
                 }
             }
         }
@@ -67,10 +71,17 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refresh.intValue++
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        smsRequest.value = SmsNavigation.parse(intent)
+        refresh.intValue++
+    }
 }
 
 @Composable
-fun App(refreshKey: Int, onChanged: () -> Unit) {
+fun App(refreshKey: Int, onChanged: () -> Unit, smsRequest: SmsOpenRequest?, onSmsConsumed: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { Prefs(context) }
     var seccion by rememberSaveable { mutableStateOf(Seccion.RECIENTES) }
@@ -141,6 +152,9 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         return
     }
 
+    LaunchedEffect(smsRequest?.token) {
+        if (smsRequest != null) seccion = Seccion.MENSAJES
+    }
     CompositionLocalProvider(LocalAbrirFormulario provides abrirFormulario) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -168,7 +182,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
             pantallas.SaveableStateProvider(seccion.name) {
                 when (seccion) {
                     Seccion.RECIENTES -> PantallaTelefono(refreshKey, pedirPermisos) { seccion = Seccion.PROTECCION }
-                    Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos)
+                    Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos, smsRequest, onSmsConsumed)
                     Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos) {
                         regresoDePremium = Seccion.PROTECCION
                         seccion = Seccion.PREMIUM
@@ -225,7 +239,7 @@ private fun Bienvenida(onContinuar: () -> Unit, onOmitir: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
             Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Text(
-                "Pediremos permiso para ver y guardar tus contactos, y ver tus llamadas y SMS. La app no envía nada a internet.",
+                "Pediremos permiso para tus contactos, llamadas y SMS. Los mensajes se envían por tu operador; los MMS utilizan datos móviles.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -13,8 +13,8 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.6.0"
+        versionCode = 14
+        versionName = "2.0.0"
     }
 
     // Llave fija para que cada versión nueva se instale encima de la anterior.
@@ -57,6 +57,8 @@ android {
     buildFeatures {
         compose = true
     }
+    useLibrary("org.apache.http.legacy")
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
 dependencies {
@@ -71,5 +73,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("com.klinkerapps:android-smsmms:5.2.6")
 }
 
