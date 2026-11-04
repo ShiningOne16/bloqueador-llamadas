@@ -10,6 +10,8 @@ import java.util.TimeZone
 sealed interface FilaRegistro {
     data class Cabecera(val etiqueta: String, val clave: Long) : FilaRegistro
     data class Llamadas(val grupo: CallGroup) : FilaRegistro
+    /** Lugar para un anuncio nativo; [lugar] numera los anuncios de la lista. */
+    data class Anuncio(val lugar: Int) : FilaRegistro
 }
 
 /** Sin dependencias de Android: se prueba con fechas concretas. */
@@ -43,6 +45,30 @@ object DiaRegistro {
                 f.format(ts)
             }
         }
+    }
+
+    /**
+     * Intercala un anuncio después de la llamada número [primero] y luego cada [cada] llamadas.
+     * Nunca queda un anuncio al final de la lista ni en listas cortas.
+     */
+    fun conAnuncios(filas: List<FilaRegistro>, primero: Int = 6, cada: Int = 14): List<FilaRegistro> {
+        val total = filas.count { it is FilaRegistro.Llamadas }
+        if (total <= primero) return filas
+        val resultado = ArrayList<FilaRegistro>(filas.size + total / cada + 1)
+        var vistas = 0
+        var proximo = primero
+        var lugar = 0
+        for (f in filas) {
+            resultado += f
+            if (f is FilaRegistro.Llamadas) {
+                vistas++
+                if (vistas == proximo && vistas < total) {
+                    resultado += FilaRegistro.Anuncio(lugar++)
+                    proximo += cada
+                }
+            }
+        }
+        return resultado
     }
 
     /** Inserta un encabezado cada vez que cambia el día. Espera los grupos ya ordenados por fecha. */

@@ -122,7 +122,12 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
         PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda, notas[NoteRules.key(it.number)]) })
     }
-    val filas = remember(visibleGroups) { DiaRegistro.agrupar(visibleGroups, System.currentTimeMillis()) }
+    // Sin anuncios al seleccionar, al buscar ni cuando Premium los quite.
+    val conAnuncios = Anuncios.activos && !selectionMode && busqueda.isBlank()
+    val filas = remember(visibleGroups, conAnuncios) {
+        val base = DiaRegistro.agrupar(visibleGroups, System.currentTimeMillis())
+        if (conAnuncios) DiaRegistro.conAnuncios(base) else base
+    }
     val haptic = LocalHapticFeedback.current
 
     Column(Modifier.fillMaxSize()) {
@@ -182,11 +187,20 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Esp.xl)) {
                     items(
                         filas,
-                        key = { f -> when (f) { is FilaRegistro.Cabecera -> "h${f.clave}"; is FilaRegistro.Llamadas -> f.grupo.latest.id } },
-                        contentType = { f -> if (f is FilaRegistro.Cabecera) 0 else 1 }
+                        key = { f ->
+                            when (f) {
+                                is FilaRegistro.Cabecera -> "h${f.clave}"
+                                is FilaRegistro.Llamadas -> f.grupo.latest.id
+                                is FilaRegistro.Anuncio -> "ad${f.lugar}"
+                            }
+                        },
+                        contentType = { f ->
+                            when (f) { is FilaRegistro.Cabecera -> 0; is FilaRegistro.Llamadas -> 1; is FilaRegistro.Anuncio -> 2 }
+                        }
                     ) { f ->
                         when (f) {
                             is FilaRegistro.Cabecera -> CabeceraDia(f.etiqueta, Modifier.animateItem())
+                            is FilaRegistro.Anuncio -> AnuncioNativo(f.lugar, Modifier.animateItem())
                             is FilaRegistro.Llamadas -> {
                                 val g = f.grupo
                                 FilaLlamada(

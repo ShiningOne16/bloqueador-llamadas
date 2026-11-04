@@ -183,6 +183,21 @@ panel de llamada con acción principal en azul de marca, tarjeta de protección 
 Premium con degradado azul noche, filas que se reordenan con animación y vibración suave en gestos
 y selección.
 
+## Anuncios (AdMob)
+
+- **Dónde salen:** un anuncio nativo (con la etiqueta "Anuncio") dentro del registro de Recientes, después de la
+  llamada 6 y luego cada 14, y un banner fijo abajo en la lista de Mensajes. No hay anuncios dentro de
+  conversaciones, ni en Protección, PIN o Contactos ocultos, ni al seleccionar o buscar.
+- **Consentimiento:** al abrir la app se pide el consentimiento (mensaje UMP de Google) donde la ley lo exige,
+  y los anuncios no se piden hasta que se responde. Los anuncios se limitan a contenido PG.
+- **Privacidad:** los anuncios no reciben tus llamadas, SMS ni contactos. El SDK sí usa internet y el ID de publicidad.
+- **IDs de prueba:** `app/src/main/res/values/ads.xml` trae los IDs de prueba de Google. Antes de publicar,
+  reemplázalos por los de tu cuenta de AdMob.
+- **Premium:** `Anuncios.PREMIUM_COMPRADO` (en `Anuncios.kt`) pasará a `true` cuando exista la compra y quitará todos los anuncios.
+- **Para Google Play:** además de los IDs reales hacen falta una llave de firma propia (la del repositorio es solo
+  para uso personal), una política de privacidad pública, el formulario de Seguridad de los datos, la declaración de
+  ID de publicidad y la declaración de permisos de SMS y registro de llamadas.
+
 ## Estructura
 - `BlockerService.kt` – decide si cada llamada entrante pasa o se rechaza.
 - `SmsNotificationListener.kt` – quita las notificaciones de SMS de desconocidos.

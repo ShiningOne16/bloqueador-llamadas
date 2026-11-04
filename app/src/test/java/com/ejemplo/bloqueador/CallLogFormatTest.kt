@@ -56,3 +56,36 @@ class CallLogFormatTest {
         assertTrue(DiaRegistro.agrupar(emptyList(), ahora, es, zona).isEmpty())
     }
 }
+
+class AnunciosEnListaTest {
+    private fun llamada(id: Long) = FilaRegistro.Llamadas(CallGroup(CallEntry(id, "5512345678", null, 1, id, 0L), 1))
+    private fun lista(n: Int) = (1..n).map { llamada(it.toLong()) }
+
+    @Test fun shortListsHaveNoAds() {
+        assertEquals(0, DiaRegistro.conAnuncios(lista(6)).count { it is FilaRegistro.Anuncio })
+        assertEquals(0, DiaRegistro.conAnuncios(emptyList()).count { it is FilaRegistro.Anuncio })
+    }
+
+    @Test fun firstAdAfterSixthCallAndNeverLast() {
+        val r = DiaRegistro.conAnuncios(lista(7))
+        assertEquals(8, r.size)
+        assertTrue(r[6] is FilaRegistro.Anuncio)
+        assertTrue(r.last() is FilaRegistro.Llamadas)
+    }
+
+    @Test fun adsRepeatEveryFourteenCallsAndAreNumbered() {
+        val r = DiaRegistro.conAnuncios(lista(40))
+        val anuncios = r.filterIsInstance<FilaRegistro.Anuncio>()
+        assertEquals(listOf(0, 1, 2), anuncios.map { it.lugar })
+        assertEquals(40, r.count { it is FilaRegistro.Llamadas })
+        assertTrue(r[6] is FilaRegistro.Anuncio)
+        assertTrue(r[21] is FilaRegistro.Anuncio)
+        assertTrue(r[36] is FilaRegistro.Anuncio)
+    }
+
+    @Test fun adIsNotAddedWhenItWouldBeTheLastRow() {
+        val r = DiaRegistro.conAnuncios(lista(20))
+        assertEquals(1, r.count { it is FilaRegistro.Anuncio })
+        assertTrue(r.last() is FilaRegistro.Llamadas)
+    }
+}

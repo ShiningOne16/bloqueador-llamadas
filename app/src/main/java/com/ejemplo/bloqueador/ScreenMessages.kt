@@ -209,7 +209,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                         else -> EstadoVacio(Icons.Filled.Sms, "Aún no hay mensajes", "Tus conversaciones por SMS aparecerán aquí.")
                     }
                 } else {
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
+                    LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(visibles, key = { it.threadId }) { h ->
                             FilaHilo(h, onClick = { if (selectionMode) toggleThread(h) else abiertoId = h.threadId }, archived = filtro == 3,
                                 onLongClick = { toggleThread(h) }, selectionMode = selectionMode,
@@ -219,6 +219,8 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                     }
                 }
             }
+            // Banner fijo abajo, solo en la lista (no dentro de una conversación).
+            if (!selectionMode) AnuncioBanner()
         }
 
         if (tienePermiso && !selectionMode) {
@@ -228,7 +230,8 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 text = { Text("Nuevo") },
                 containerColor = LocalColoresExtra.current.marca,
                 contentColor = LocalColoresExtra.current.onMarca,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(Esp.l)
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(start = Esp.l, end = Esp.l, top = Esp.l, bottom = if (Anuncios.activos && Anuncios.listo.value) 80.dp else Esp.l)
             )
         }
     }

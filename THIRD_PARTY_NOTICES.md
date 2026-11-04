@@ -8,3 +8,8 @@ que incluye componentes del Android Open Source Project, bajo licencia Apache 2.
 
 La recepción diferida utiliza AndroidX WorkManager (Apache 2.0).
 Las pruebas de componentes Android utilizan Robolectric (MIT).
+
+# Anuncios
+
+Los anuncios usan el SDK de Google Mobile Ads (AdMob) y la Plataforma de mensajes de usuario (UMP) de Google,
+software propietario sujeto a los términos de Google AdMob (https://admob.google.com/home/terms/).

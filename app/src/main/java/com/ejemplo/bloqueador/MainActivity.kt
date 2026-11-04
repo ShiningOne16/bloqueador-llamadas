@@ -65,6 +65,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        Anuncios.iniciar(this)
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) Anuncios.liberar()
+        super.onDestroy()
     }
 
     override fun onResume() {

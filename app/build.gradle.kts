@@ -76,5 +76,7 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.14.1")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("com.klinkerapps:android-smsmms:5.2.6")
+    // Anuncios (AdMob) y mensaje de consentimiento (UMP, incluido en este SDK)
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
 
