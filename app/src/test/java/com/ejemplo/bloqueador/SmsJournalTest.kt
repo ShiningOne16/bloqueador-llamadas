@@ -18,20 +18,20 @@ class SmsJournalTest {
 
     @Test fun partResultsSurviveClosingAndReopeningDatabase() {
         SmsJournal(context).use {
-            it.create("multipart", "content://sms/1", 2)
-            assertEquals("pending", it.record("multipart", 1, Activity.RESULT_OK)?.second)
+            it.create("multipart", "content://sms/1", 2, 123456L)
+            assertEquals("pending", it.record("multipart", 1, Activity.RESULT_OK)?.state)
         }
         SmsJournal(context).use {
-            assertEquals("sent", it.record("multipart", 0, Activity.RESULT_OK)?.second)
-            assertEquals("sent", it.record("multipart", 1, Activity.RESULT_OK)?.second)
+            assertEquals("sent", it.record("multipart", 0, Activity.RESULT_OK)?.state)
+            assertEquals(123456L, it.record("multipart", 1, Activity.RESULT_OK)?.date)
         }
     }
 
     @Test fun failedSegmentCannotBecomeSentAfterLaterSuccess() {
         SmsJournal(context).use {
             it.create("failed", "content://sms/2", 2)
-            assertEquals("failed", it.record("failed", 0, 4)?.second)
-            assertEquals("failed", it.record("failed", 1, Activity.RESULT_OK)?.second)
+            assertEquals("failed", it.record("failed", 0, 4)?.state)
+            assertEquals("failed", it.record("failed", 1, Activity.RESULT_OK)?.state)
         }
     }
 

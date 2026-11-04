@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -117,10 +118,12 @@ fun SmsComposer(address: String, initialBody: String, refreshKey: Int, onClose: 
                 scope.launch {
                     try {
                         val thread = withContext(Dispatchers.IO) {
-                            SmsRepository.threadFor(context, SmsRepository.send(context, recipient, body, selected))
+                            val uri = SmsRepository.send(context, recipient, body, selected)
+                            drafts.edit().remove("$draftKey:to").remove("$draftKey:body").apply()
+                            try { SmsRepository.threadFor(context, uri) } catch (_: Exception) { null }
                         }
-                        drafts.edit().remove("$draftKey:to").remove("$draftKey:body").apply()
                         onSent(thread)
+                    } catch (e: CancellationException) { throw e
                     } catch (e: Exception) {
                         Toast.makeText(context, e.message ?: "No se pudo enviar. El borrador se conserva.", Toast.LENGTH_LONG).show()
                     } finally { busy = false }

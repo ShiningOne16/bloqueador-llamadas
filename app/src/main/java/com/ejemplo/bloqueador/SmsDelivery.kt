@@ -81,7 +81,13 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
             SmsInboxQueue.files(applicationContext).forEach { file ->
                 try {
                 val raw = JSONObject(AtomicFile(file).openRead().bufferedReader().use { it.readText() })
-                if (raw.getString("kind") == "mms") MmsInbox.receive(applicationContext, raw)
+                if (raw.getString("kind") == "mms") {
+                    val receipt = file.nameWithoutExtension
+                    if (!SmsJournal(applicationContext).use { it.received(receipt) }) {
+                        MmsInbox.receive(applicationContext, raw)
+                        SmsJournal(applicationContext).use { it.recordIncoming(receipt, "mms:queued") }
+                    }
+                }
                 else persistSms(raw, file.nameWithoutExtension)
                 check(file.delete()) { "No se pudo retirar el mensaje procesado de la cola" }
                 } catch (_: Exception) { errors = true }
@@ -127,13 +133,19 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
         val threadId = SmsRepository.threadFor(context, uri) ?: return
         val store = ArchiveStore(context)
         store.save(store.read().restoreThread(threadId))
-        if (SmsNotifications.shouldSilence(context, from)) Prefs(context).addSilencedSms(from, body, System.currentTimeMillis())
+        val silence = try { SmsNotifications.shouldSilence(context, from) } catch (_: Exception) { false }
+        if (silence) Prefs(context).addSilencedSms(from, body, System.currentTimeMillis())
         else SmsNotifications.incoming(context, threadId, from, body)
     }
 }
 
 class SmsRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) { SmsInboxQueue.enqueue(context) }
+}
+
+class SmsPendingWorker(context: Context, parameters: WorkerParameters) : Worker(context, parameters) {
+    override fun doWork(): Result = try { SmsRepository.recoverPending(applicationContext); Result.success() }
+    catch (_: Exception) { Result.retry() }
 }
 
 class SmsSentReceiver : BroadcastReceiver() {
@@ -146,14 +158,14 @@ class SmsSentReceiver : BroadcastReceiver() {
             try {
                 if (!SmsRepository.isDefault(context)) return@thread
                 val result = SmsJournal(context).use { it.record(token, part, sentResult) } ?: return@thread
-                if (result.second != "pending") {
-                    val count = context.contentResolver.update(Uri.parse(result.first), ContentValues().apply {
-                        put(Telephony.Sms.TYPE, if (result.second == "sent") Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
-                        put(Telephony.Sms.STATUS, if (result.second == "sent") Telephony.Sms.STATUS_NONE else Telephony.Sms.STATUS_FAILED)
-                        if (result.second == "sent") put(Telephony.Sms.DATE_SENT, System.currentTimeMillis())
+                if (result.state != "pending") {
+                    val count = context.contentResolver.update(Uri.parse(result.uri), ContentValues().apply {
+                        put(Telephony.Sms.TYPE, if (result.state == "sent") Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
+                        put(Telephony.Sms.STATUS, if (result.state == "sent") Telephony.Sms.STATUS_NONE else Telephony.Sms.STATUS_FAILED)
+                        if (result.state == "sent") put(Telephony.Sms.DATE_SENT, System.currentTimeMillis())
                         else put(Telephony.Sms.ERROR_CODE, sentResult)
-                    }, null, null)
-                    if (count > 0 && result.second == "failed") SmsNotifications.error(context, "No se confirmó el envío de un SMS. Revisa el mensaje antes de reenviar; algunas partes pudieron llegar.")
+                    }, "${Telephony.Sms.DATE}=?", arrayOf(result.date.toString()))
+                    if (count > 0 && result.state == "failed") SmsNotifications.error(context, "No se confirmó el envío de un SMS. Revisa el mensaje antes de reenviar; algunas partes pudieron llegar.")
                 }
             } catch (_: Exception) { SmsNotifications.error(context, "Hay un estado de envío pendiente de actualizar. Abre Mensajes para revisarlo.") }
             finally { pending.finish() }
@@ -170,7 +182,7 @@ class SmsRespondService : Service() {
             try {
                 val to = intent.data?.schemeSpecificPart?.substringBefore('?').orEmpty()
                 val body = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
-                val sub = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, SubscriptionManager.getDefaultSmsSubscriptionId())
+                val sub = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, intent.getIntExtra("subscription", SubscriptionManager.getDefaultSmsSubscriptionId()))
                 SmsRepository.send(this, to, body, sub)
             } catch (_: Exception) { SmsNotifications.error(this, "No se pudo enviar la respuesta rápida. Abre Mensajes para revisarla.") }
             finally { stopSelf(startId) }

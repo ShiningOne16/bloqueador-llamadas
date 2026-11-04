@@ -48,14 +48,15 @@ object SmsRepository {
         val sms = manager(context, subId)
         val parts = sms.divideMessage(body)
         require(parts.size in 1..10) { "El mensaje supera el máximo de 10 partes SMS." }
+        val created = System.currentTimeMillis()
         val uri = context.contentResolver.insert(Telephony.Sms.Outbox.CONTENT_URI, ContentValues().apply {
             put(Telephony.Sms.ADDRESS, to); put(Telephony.Sms.BODY, body)
-            put(Telephony.Sms.DATE, System.currentTimeMillis()); put(Telephony.Sms.READ, 1); put(Telephony.Sms.SEEN, 1)
+            put(Telephony.Sms.DATE, created); put(Telephony.Sms.READ, 1); put(Telephony.Sms.SEEN, 1)
             put(Telephony.Sms.SUBSCRIPTION_ID, subId); put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_PENDING)
         }) ?: error("No se pudo guardar el mensaje antes de enviarlo.")
         val token = UUID.randomUUID().toString()
         try {
-            SmsJournal(context).use { it.create(token, uri.toString(), parts.size) }
+            SmsJournal(context).use { it.create(token, uri.toString(), parts.size, created) }
             val intents = ArrayList(parts.indices.map { part ->
                 PendingIntent.getBroadcast(context, 0,
                     Intent(context, SmsSentReceiver::class.java).setAction("${context.packageName}.SMS_SENT")
@@ -64,11 +65,15 @@ object SmsRepository {
             })
             // No hay reintentos automáticos: tras un fallo, reenviar podría duplicar partes ya entregadas.
             sms.sendMultipartTextMessage(to, null, parts, intents, null)
+            try {
+                androidx.work.WorkManager.getInstance(context).enqueue(
+                    androidx.work.OneTimeWorkRequestBuilder<SmsPendingWorker>().setInitialDelay(10, java.util.concurrent.TimeUnit.MINUTES).build())
+            } catch (_: Exception) { /* Las confirmaciones del módem siguen siendo independientes del trabajador. */ }
             return uri
         } catch (e: Exception) {
             context.contentResolver.update(uri, ContentValues().apply {
                 put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_FAILED); put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_FAILED)
-            }, null, null)
+            }, "${Telephony.Sms.DATE}=?", arrayOf(created.toString()))
             throw e
         }
     }
@@ -79,8 +84,8 @@ object SmsRepository {
     fun deleteThread(context: Context, thread: SmsThread): Int {
         check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
         return context.contentResolver.delete(Telephony.Sms.CONTENT_URI,
-            "${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms._ID}<=?",
-            arrayOf(thread.threadId.toString(), thread.last.id.toString()))
+            "${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms._ID}<=? AND ${Telephony.Sms.DATE}<=?",
+            arrayOf(thread.threadId.toString(), thread.last.id.toString(), thread.last.date.toString()))
     }
 
     fun deleteMessage(context: Context, message: SmsMsg): Int {
@@ -101,17 +106,17 @@ object SmsRepository {
     /** Un callback perdido se muestra como envío no confirmado, nunca como enviado ni se reintenta solo. */
     fun recoverPending(context: Context) {
         if (!isDefault(context)) return
-        SmsJournal(context).use { journal -> journal.stale().forEach { uri ->
-            context.contentResolver.update(Uri.parse(uri), ContentValues().apply {
+        SmsJournal(context).use { journal -> journal.stale().forEach { record ->
+            context.contentResolver.update(Uri.parse(record.uri), ContentValues().apply {
                 put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_FAILED)
                 put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_FAILED)
-            }, "${Telephony.Sms.TYPE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString()))
+            }, "${Telephony.Sms.TYPE}=? AND ${Telephony.Sms.DATE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString(), record.date.toString()))
         }
-            journal.completed().forEach { (uri, state) ->
+            journal.completed().forEach { (uri, state, date) ->
                 context.contentResolver.update(Uri.parse(uri), ContentValues().apply {
                     put(Telephony.Sms.TYPE, if (state == "sent") Telephony.Sms.MESSAGE_TYPE_SENT else Telephony.Sms.MESSAGE_TYPE_FAILED)
                     put(Telephony.Sms.STATUS, if (state == "sent") Telephony.Sms.STATUS_NONE else Telephony.Sms.STATUS_FAILED)
-                }, "${Telephony.Sms.TYPE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString()))
+                }, "${Telephony.Sms.TYPE}=? AND ${Telephony.Sms.DATE}=?", arrayOf(Telephony.Sms.MESSAGE_TYPE_OUTBOX.toString(), date.toString()))
             }
         }
     }
