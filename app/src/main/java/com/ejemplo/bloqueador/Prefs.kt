@@ -11,6 +11,7 @@ data class SilencedSms(val sender: String, val text: String, val timestamp: Long
 /** Ajustes y registros (llamadas bloqueadas y SMS silenciados), guardados en SharedPreferences. */
 class Prefs(context: Context) {
 
+    private val appContext = context.applicationContext
     private val sp = context.getSharedPreferences("bloqueador", Context.MODE_PRIVATE)
 
     /** Ya se mostró la pantalla de bienvenida. */
@@ -55,8 +56,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
-    fun blockedCalls(): List<BlockedCall> = readArray(KEY_LOG).map {
-        BlockedCall(it.getString("n"), it.getLong("t"))
+    /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se muestran. */
+    fun blockedCalls(): List<BlockedCall> {
+        val all = readArray(KEY_LOG).map { BlockedCall(it.getString("n"), it.getLong("t")) }
+        val hidden = HiddenStore(appContext).hiddenKeys()
+        return if (hidden.isEmpty()) all else all.filterNot { HiddenRules.isHiddenNumber(hidden, it.number) }
     }
 
     @Synchronized
@@ -89,8 +93,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_SMS_BUSINESS, false)
         set(v) = sp.edit().putBoolean(KEY_SMS_BUSINESS, v).apply()
 
-    fun silencedSms(): List<SilencedSms> = readArray(KEY_SMS_LOG).map {
-        SilencedSms(it.getString("s"), it.optString("m"), it.getLong("t"))
+    fun silencedSms(): List<SilencedSms> {
+        val all = readArray(KEY_SMS_LOG).map { SilencedSms(it.getString("s"), it.optString("m"), it.getLong("t")) }
+        val hidden = HiddenStore(appContext).contacts()
+        return if (hidden.isEmpty()) all else all.filterNot { HiddenRules.matchesSender(hidden, it.sender) }
     }
 
     @Synchronized

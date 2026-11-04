@@ -76,7 +76,7 @@ object PhoneData {
 
     // ---------------- Registro de llamadas ----------------
 
-    fun loadCalls(context: Context, limit: Int = 500, onlyIds: Set<Long>? = null): List<CallEntry> {
+    fun loadCalls(context: Context, limit: Int = 500, onlyIds: Set<Long>? = null, includeHidden: Boolean = false): List<CallEntry> {
         if (!has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val out = ArrayList<CallEntry>()
@@ -102,6 +102,12 @@ object PhoneData {
                     duration = c.getLong(5)
                 )
             }
+        }
+
+        // Los contactos ocultos no aparecen en el registro.
+        if (!includeHidden) {
+            val ocultos = HiddenStore(context).hiddenKeys()
+            if (ocultos.isNotEmpty()) out.removeAll { HiddenRules.isHiddenNumber(ocultos, it.number) }
         }
 
         // El nombre que guarda Android (CACHED_NAME) es el del momento de la llamada y no se
@@ -179,7 +185,12 @@ object PhoneData {
             }
         }
         val origen = ContactStore.cuentasPorContacto(context)
-        return map.values.map { it.copy(cuentas = origen[it.id].orEmpty()) }
+        val todos = map.values.map { it.copy(cuentas = origen[it.id].orEmpty()) }
+        // Los contactos ocultos no se muestran en ninguna lista de la app.
+        val ocultos = HiddenStore(context).contacts()
+        if (ocultos.isEmpty()) return todos
+        val claves = HiddenRules.keys(ocultos)
+        return todos.filterNot { HiddenRules.isHiddenEntry(ocultos, claves, it.id, it.numbers) }
     }
 
     /** Mapa número normalizado → nombre del contacto. */
@@ -214,10 +225,11 @@ object PhoneData {
         subscriptionId = c.getInt(7)
     )
 
-    fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000, onlyIds: Set<Long>? = null): List<SmsThread> {
+    fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000, onlyIds: Set<Long>? = null, includeHidden: Boolean = false): List<SmsThread> {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
         if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val threads = LinkedHashMap<Long, SmsThread>()
+        val ocultos = if (includeHidden) emptySet() else HiddenStore(context).hiddenKeys()
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
             onlyIds?.let { "${Telephony.Sms.THREAD_ID} IN (${it.joinToString(",")})" }, null, "${Telephony.Sms.DATE} DESC"
@@ -225,6 +237,7 @@ object PhoneData {
             var rows = 0
             while (c.moveToNext() && (onlyIds != null || rows++ < maxRows)) {
                 val msg = readSms(c)
+                if (ocultos.isNotEmpty() && HiddenRules.isHiddenNumber(ocultos, msg.address)) continue
                 val unread = if (msg.incoming && !msg.read) 1 else 0
                 val t = threads[msg.threadId]
                 threads[msg.threadId] = if (t == null) {
@@ -247,12 +260,16 @@ object PhoneData {
     fun loadConversation(context: Context, threadId: Long, limit: Int = 500): List<SmsMsg> {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
         val out = ArrayList<SmsMsg>()
+        val ocultos = HiddenStore(context).hiddenKeys()
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
             "${Telephony.Sms.THREAD_ID} = ?", arrayOf(threadId.toString()),
             "${Telephony.Sms.DATE} DESC"
         )?.use { c ->
-            while (c.moveToNext() && out.size < limit) out += readSms(c)
+            while (c.moveToNext() && out.size < limit) {
+                val msg = readSms(c)
+                if (ocultos.isEmpty() || !HiddenRules.isHiddenNumber(ocultos, msg.address)) out += msg
+            }
         }
         return out // del más nuevo al más viejo
     }

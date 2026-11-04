@@ -24,7 +24,8 @@ class BlockerService : CallScreeningService() {
         // Android da ~5 s para responder; esto tarda milisegundos.
         thread {
             val response = try {
-                if (shouldBlock(details)) block() else allow()
+                if (isHiddenCaller(details)) blockSilently()
+                else if (shouldBlock(details)) block() else allow()
             } catch (e: Exception) {
                 Log.e(TAG, "Error al filtrar, se deja pasar la llamada", e)
                 allow()
@@ -89,6 +90,22 @@ class BlockerService : CallScreeningService() {
         prefs.addBlocked(number, now)
         return true
     }
+
+    /**
+     * Contactos ocultos (Premium): siempre se rechazan, incluso con el filtro pausado, y no dejan
+     * registro ni en Bloqueador ni en el historial del teléfono ni en notificaciones.
+     */
+    private fun isHiddenCaller(details: Call.Details): Boolean {
+        val number = details.handle?.schemeSpecificPart?.trim().orEmpty()
+        return number.isNotEmpty() && HiddenStore(this).isHidden(number)
+    }
+
+    private fun blockSilently() = CallResponse.Builder()
+        .setDisallowCall(true)
+        .setRejectCall(true)
+        .setSkipCallLog(true)
+        .setSkipNotification(true)
+        .build()
 
     private fun allow() = CallResponse.Builder().build()
 

@@ -114,10 +114,12 @@ object MmsInbox {
 
     fun list(context: Context): List<MmsItem> {
         val output = mutableListOf<MmsItem>()
+        val hidden = HiddenStore(context).hiddenKeys()
         context.contentResolver.query(Telephony.Mms.Inbox.CONTENT_URI, arrayOf("_id", "date", "m_type"), null, null, "date DESC")?.use { rows ->
             while (rows.moveToNext() && output.size < 200) {
                 val id = rows.getLong(0)
                 val sender = context.contentResolver.query(Uri.parse("content://mms/$id/addr"), arrayOf("address"), "type=?", arrayOf("137"), null)?.use { if (it.moveToFirst()) it.getString(0) else "MMS" } ?: "MMS"
+                if (hidden.isNotEmpty() && HiddenRules.isHiddenNumber(hidden, sender)) continue
                 val text = mutableListOf<String>()
                 val parts = mutableListOf<MmsPart>()
                 context.contentResolver.query(Uri.parse("content://mms/$id/part"), arrayOf("_id", "ct", "text"), null, null, null)?.use { part ->

@@ -27,6 +27,13 @@ class SmsNotificationListener : NotificationListenerService() {
         if (sbn.packageName == packageName) return // Los avisos propios se deciden antes de publicarse.
         if (!isSmsApp(sbn.packageName)) return
 
+        // Contacto oculto (Premium): se quita el aviso sin guardar nada en el registro.
+        val hiddenSender = senderAndText(sbn.notification)?.first
+        if (hiddenSender != null && HiddenStore(this).matchesSender(hiddenSender)) {
+            cancelNotification(sbn.key)
+            return
+        }
+
         val prefs = Prefs(this)
         if (!prefs.smsEnabled) return
         val profile = PremiumStore(this).read().activeProfile

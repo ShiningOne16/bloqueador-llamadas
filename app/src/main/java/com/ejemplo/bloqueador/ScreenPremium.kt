@@ -46,6 +46,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var configuration by remember { mutableStateOf(store.read()) }
     var editing by rememberSaveable { mutableStateOf<ProtectionProfile?>(null) }
     var deleting by rememberSaveable { mutableStateOf<ProtectionProfile?>(null) }
+    var viendoOcultos by rememberSaveable { mutableStateOf(false) }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -70,6 +71,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
         )
         return
     }
+    if (viendoOcultos) {
+        PantallaOcultos(onCerrar = { viendoOcultos = false }, onChanged = onChanged)
+        return
+    }
     BackHandler(onBack = onCerrar)
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -84,10 +89,19 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                     Column(Modifier.padding(Esp.l), verticalArrangement = Arrangement.spacedBy(Esp.s)) {
                         Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall)
-                        Text("Horarios · Excepciones · Perfiles", style = MaterialTheme.typography.titleMedium)
+                        Text("Horarios · Excepciones · Perfiles · Contactos ocultos", style = MaterialTheme.typography.titleMedium)
                         Text("Vista previa gratuita. La suscripción mensual todavía no está disponible y no se realizan cobros.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+            item {
+                Tarjeta {
+                    FilaAccion(
+                        Icons.Filled.VisibilityOff,
+                        "Contactos ocultos",
+                        "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos."
+                    ) { viendoOcultos = true }
                 }
             }
             item {

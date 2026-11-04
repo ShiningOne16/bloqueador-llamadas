@@ -127,6 +127,11 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
         val body = messages.joinToString("") { it.messageBody.orEmpty() }
         val sent = messages.first().timestampMillis
         val sub = raw.getInt("sub")
+        // Contacto oculto (Premium): el SMS se descarta sin guardarlo ni avisar.
+        if (HiddenStore(context).isHidden(from)) {
+            SmsJournal(context).use { it.recordIncoming(receipt, "hidden") }
+            return
+        }
         val duplicate = context.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI, arrayOf(Telephony.Sms._ID),
             "${Telephony.Sms.ADDRESS}=? AND ${Telephony.Sms.BODY}=? AND ${Telephony.Sms.DATE_SENT}=? AND ${Telephony.Sms.SUBSCRIPTION_ID}=?",
             arrayOf(from, body, sent.toString(), sub.toString()), null)?.use { if (it.moveToFirst()) it.getLong(0) else null }

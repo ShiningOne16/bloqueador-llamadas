@@ -112,6 +112,15 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
 - **Excepciones de llamadas:** permite números aunque no estén en contactos o bloquea números aunque
   estén guardados. Las reglas son por número completo (comparado por los últimos 10 dígitos), sin prefijos.
   Se aplican incluso fuera del horario del perfil; no se aplican a SMS ni a números ocultos.
+- **Contactos ocultos:** oculta a un contacto desde Premium con un PIN de 4 dígitos. Sus llamadas se rechazan
+  (incluso con el filtro pausado, sin anotarse en el historial del teléfono ni en Protección) y sus SMS se
+  descartan si Bloqueador es tu app de SMS predeterminada; si no, solo se quita el aviso. No aparece en
+  contactos, recientes, mensajes ni marcador. El PIN se guarda como hash PBKDF2 y la lista va cifrada con el
+  almacén seguro de Android; tras 5 intentos fallidos hay un bloqueo temporal que va creciendo, y la pantalla
+  no permite capturas. **Olvidé mi PIN** borra para siempre todos los contactos ocultos: su contacto de la
+  agenda (también en Google), su registro de llamadas y sus SMS (estos solo si Bloqueador es la app
+  predeterminada). Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
+  y sus llamadas anteriores.
 - **Perfiles:** Trabajo, Noche y Vacaciones vienen preparados. Puedes editarlos, crear otros, eliminarlos
   y seleccionar uno a la vez. Cada perfil guarda su horario, excepciones y reglas de llamadas y SMS.
 
