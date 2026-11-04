@@ -6,7 +6,7 @@ root ni quedarse abierta: Android le pregunta a la app antes de que suene cada l
 
 ## Qué hace
 
-Funciona como app de teléfono, con tres pestañas principales (Recientes, Mensajes y Protección).
+Funciona como app de teléfono, con cuatro pestañas principales (Recientes, Mensajes, Protección y Premium).
 Dentro de **Recientes**, una barra inferior agrupa **Recientes, Contactos y Favoritos**, con un botón
 independiente de **Marcar** a su lado. El botón Atrás vuelve al registro de llamadas; tocar Marcar
 otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y número marcado al cambiar de sección.
@@ -34,7 +34,7 @@ Requiere **Android 10 o superior**.
 
 ### Premium
 
-El botón **Premium**, visible en las tres secciones principales, abre la **vista previa gratuita** de:
+La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes y Protección. Abre la **vista previa gratuita** de:
 
 - **Horarios de protección:** elige días de la semana y horas de inicio y fin para llamadas y SMS.
   Se usa la hora local del teléfono. Un turno nocturno continúa al día siguiente: lunes 22:00–07:00
