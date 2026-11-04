@@ -10,7 +10,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -271,6 +275,93 @@ fun Filtros(opciones: List<String>, seleccionado: Int, onSeleccion: (Int) -> Uni
                 modifier = Modifier.heightIn(min = 40.dp)
             )
         }
+    }
+}
+
+/**
+ * Buscador en píldora, como el de Google Teléfono, Samsung e iOS: relleno suave, sin borde,
+ * lupa a la izquierda y botón para borrar a la derecha.
+ */
+@Composable
+fun Buscador(valor: String, onCambio: (String) -> Unit, sugerencia: String) {
+    TextField(
+        value = valor,
+        onValueChange = onCambio,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.xs).heightIn(min = 52.dp),
+        placeholder = { Text(sugerencia) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (valor.isNotEmpty()) {
+                IconButton(onClick = { onCambio("") }) {
+                    Icon(Icons.Filled.Clear, contentDescription = "Borrar búsqueda")
+                }
+            }
+        },
+        singleLine = true,
+        shape = CircleShape,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent
+        )
+    )
+}
+
+/**
+ * Fila con gestos como la de Samsung: deslizar a la derecha llama y a la izquierda manda mensaje.
+ * La fila siempre regresa a su lugar; los botones de la fila siguen disponibles sin gestos.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilaDeslizable(
+    alLlamar: (() -> Unit)?,
+    alMensaje: (() -> Unit)?,
+    content: @Composable () -> Unit
+) {
+    if (alLlamar == null && alMensaje == null) {
+        content()
+        return
+    }
+    val extra = LocalColoresExtra.current
+    val estado = rememberSwipeToDismissBoxState(
+        confirmValueChange = { destino ->
+            when (destino) {
+                SwipeToDismissBoxValue.StartToEnd -> alLlamar?.invoke()
+                SwipeToDismissBoxValue.EndToStart -> alMensaje?.invoke()
+                SwipeToDismissBoxValue.Settled -> Unit
+            }
+            false
+        }
+    )
+    SwipeToDismissBox(
+        state = estado,
+        enableDismissFromStartToEnd = alLlamar != null,
+        enableDismissFromEndToStart = alMensaje != null,
+        backgroundContent = {
+            val haciaLlamar = estado.dismissDirection == SwipeToDismissBoxValue.StartToEnd
+            val haciaMensaje = estado.dismissDirection == SwipeToDismissBoxValue.EndToStart
+            Box(
+                Modifier.fillMaxSize()
+                    .background(
+                        when {
+                            haciaLlamar -> extra.llamar
+                            haciaMensaje -> MaterialTheme.colorScheme.primary
+                            else -> Color.Transparent
+                        }
+                    )
+                    .padding(horizontal = Esp.xl),
+                contentAlignment = if (haciaLlamar) Alignment.CenterStart else Alignment.CenterEnd
+            ) {
+                if (haciaLlamar) Icon(Icons.Filled.Call, contentDescription = null, tint = extra.onLlamar)
+                if (haciaMensaje) Icon(Icons.Filled.Sms, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+    ) {
+        Box(Modifier.background(MaterialTheme.colorScheme.background)) { content() }
     }
 }
 

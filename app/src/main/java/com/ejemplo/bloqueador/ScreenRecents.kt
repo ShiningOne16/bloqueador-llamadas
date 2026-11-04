@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.PhoneForwarded
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Voicemail
@@ -44,6 +45,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     }
 
     var filtro by rememberSaveable { mutableIntStateOf(0) }
+    var busqueda by rememberSaveable { mutableStateOf("") }
     var seleccion by remember { mutableStateOf<CallEntry?>(null) }
 
     Column(Modifier.fillMaxSize()) {
@@ -61,6 +63,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             return@Column
         }
 
+        Buscador(busqueda, { busqueda = it }, "Buscar en llamadas")
         Filtros(listOf("Todas", "Perdidas", "Bloqueadas"), filtro) { filtro = it }
         Spacer(Modifier.height(Esp.s))
 
@@ -68,32 +71,40 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         if (lista == null) {
             Cargando()
         } else {
-            val grupos = remember(lista, filtro) {
-                PhoneData.groupCalls(
-                    when (filtro) {
-                        1 -> lista.filter { it.isMissedLike }
-                        2 -> lista.filter { it.isBlockedLike }
-                        else -> lista
-                    }
-                )
+            val grupos = remember(lista, filtro, busqueda) {
+                val porFiltro = when (filtro) {
+                    1 -> lista.filter { it.isMissedLike }
+                    2 -> lista.filter { it.isBlockedLike }
+                    else -> lista
+                }
+                PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda) })
             }
             if (grupos.isEmpty()) {
-                EstadoVacio(
-                    Icons.Filled.History,
-                    when (filtro) {
-                        1 -> "Sin llamadas perdidas"
-                        2 -> "Sin llamadas bloqueadas"
-                        else -> "Aún no hay llamadas"
-                    },
-                    "Cuando haya llamadas, las verás aquí."
-                )
+                if (busqueda.isNotBlank()) {
+                    EstadoVacio(
+                        Icons.Filled.SearchOff,
+                        "Sin resultados",
+                        "No hay llamadas que coincidan con \"$busqueda\"."
+                    )
+                } else {
+                    EstadoVacio(
+                        Icons.Filled.History,
+                        when (filtro) {
+                            1 -> "Sin llamadas perdidas"
+                            2 -> "Sin llamadas bloqueadas"
+                            else -> "Aún no hay llamadas"
+                        },
+                        "Cuando haya llamadas, las verás aquí."
+                    )
+                }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Esp.l)) {
                     items(grupos, key = { it.latest.id }) { g ->
                         FilaLlamada(
                             g,
                             onClick = { seleccion = g.latest },
-                            onLlamar = { Acciones.llamar(context, g.latest.number) }
+                            onLlamar = { Acciones.llamar(context, g.latest.number) },
+                            onMensaje = { Acciones.mensaje(context, g.latest.number) }
                         )
                     }
                 }
@@ -166,11 +177,26 @@ private fun LineaTipo(c: CallEntry, extraTexto: String? = null) {
     }
 }
 
+/** Coincide por nombre (sin importar acentos) o por dígitos del número, como en Contactos. */
+private fun coincideBusqueda(c: CallEntry, q: String): Boolean {
+    if (q.isBlank()) return true
+    val texto = simplificar(q.trim())
+    val digitos = q.filter { it.isDigit() }
+    val porNombre = c.name?.let { simplificar(it).contains(texto) } ?: false
+    val porNumero = digitos.length >= 2 && c.number.filter { it.isDigit() }.contains(digitos)
+    return porNombre || porNumero
+}
+
 @Composable
-private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit) {
+private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit) {
     val c = g.latest
     val titulo = c.name ?: c.number.ifBlank { "Número oculto" }
     val alerta = tipoVista(c.type).alerta
+    val hayNumero = c.number.isNotBlank()
+    FilaDeslizable(
+        alLlamar = if (hayNumero) onLlamar else null,
+        alMensaje = if (hayNumero) onMensaje else null
+    ) {
     ListItem(
         modifier = Modifier.clickable(onClickLabel = "Ver opciones", onClick = onClick),
         leadingContent = { Avatar(titulo) },
@@ -193,6 +219,7 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit)
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+    }
 }
 
 /** Hoja inferior con acciones para un número: llamar, mensaje, guardar e historial. */

@@ -7,13 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Sms
@@ -76,22 +74,7 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit, soloFavoritos:
                     pedirPermisos
                 )
             } else {
-                OutlinedTextField(
-                    value = busqueda,
-                    onValueChange = { busqueda = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.xs),
-                    label = { Text("Buscar nombre o número") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (busqueda.isNotEmpty()) {
-                            IconButton(onClick = { busqueda = "" }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "Borrar búsqueda")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large
-                )
+                Buscador(busqueda, { busqueda = it }, "Buscar nombre o número")
 
                 val lista = contactos
                 // Solo se muestran los filtros de origen que tienen contactos
@@ -121,12 +104,12 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit, soloFavoritos:
         }
 
         if (tienePermiso) {
-            ExtendedFloatingActionButton(
+            FloatingActionButton(
                 onClick = { abrirFormulario(PeticionFormulario()) },
-                icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
-                text = { Text("Nuevo") },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Esp.l)
-            )
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Crear contacto")
+            }
         }
     }
 
@@ -191,6 +174,11 @@ private fun filtrarContactos(lista: List<ContactEntry>, q: String): List<Contact
 private fun FilaContacto(c: ContactEntry, onClick: () -> Unit) {
     val context = LocalContext.current
     val soloSim = c.cuentas == setOf(TipoCuenta.SIM)
+    val principal = c.numbers.firstOrNull()
+    FilaDeslizable(
+        alLlamar = principal?.let { n -> { Acciones.llamar(context, n) } },
+        alMensaje = principal?.let { n -> { Acciones.mensaje(context, n) } }
+    ) {
     ListItem(
         modifier = Modifier.clickable(onClickLabel = "Ver opciones", onClick = onClick),
         leadingContent = { Avatar(c.name) },
@@ -217,6 +205,7 @@ private fun FilaContacto(c: ContactEntry, onClick: () -> Unit) {
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

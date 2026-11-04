@@ -11,8 +11,8 @@ Dentro de **Recientes**, una barra inferior agrupa **Recientes, Contactos y Favo
 independiente de **Marcar** a su lado. El botón Atrás vuelve al registro de llamadas; tocar Marcar
 otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y número marcado al cambiar de sección.
 
-- **Recientes:** registro de llamadas con filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto.
-- **Contactos:** tu agenda con búsqueda (sin importar acentos), favoritos y filtro por origen. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
+- **Recientes:** registro de llamadas con búsqueda (por nombre o número) y filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto. Desliza una fila a la derecha para llamar o a la izquierda para mandar SMS (la fila regresa sola a su lugar).
+- **Contactos:** tu agenda con búsqueda en píldora (sin importar acentos), favoritos, filtro por origen, botón **+** para crear y los mismos gestos de deslizar para llamar o mandar SMS. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
 - **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
 - **Mensajes:** tus SMS por conversación, con filtros de no leídos y desconocidos. "Responder" abre tu app de SMS.
