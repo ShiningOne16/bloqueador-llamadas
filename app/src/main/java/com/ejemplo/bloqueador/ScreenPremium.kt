@@ -53,6 +53,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var deleting by rememberSaveable { mutableStateOf<ProtectionProfile?>(null) }
     var viendoOcultos by rememberSaveable { mutableStateOf(false) }
     var viendoNotas by rememberSaveable { mutableStateOf(false) }
+    var viendoAsistente by rememberSaveable { mutableStateOf(false) }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -75,6 +76,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                 editing = null
             }
         )
+        return
+    }
+    if (viendoAsistente) {
+        PantallaAsistente(onCerrar = { viendoAsistente = false })
         return
     }
     if (viendoNotas) {
@@ -108,6 +113,12 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         "Notas de números",
                         "Ponle una etiqueta o nota a cualquier número para reconocerlo cuando llame."
                     ) { viendoNotas = true }
+                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    FilaAccion(
+                        Icons.Filled.SupportAgent,
+                        "Asistente de llamadas",
+                        "Silencia a los desconocidos y les pide por SMS que se identifiquen. Tú decides si responder."
+                    ) { viendoAsistente = true }
                 }
             }
             item {
@@ -441,7 +452,7 @@ private fun PremiumHero() {
             IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 48.dp)
             Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall, color = texto)
             Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números").forEach { beneficio ->
+                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números", "Asistente de llamadas").forEach { beneficio ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
                         Icon(Icons.Filled.Check, contentDescription = null, tint = extra.marca, modifier = Modifier.size(18.dp))
                         Text(beneficio, style = MaterialTheme.typography.bodyLarge, color = texto)

@@ -34,6 +34,13 @@ class SmsNotificationListener : NotificationListenerService() {
             return
         }
 
+        // Asistente (Premium): la respuesta al SMS del asistente se avisa con sus propios botones.
+        val respuesta = senderAndText(sbn.notification)
+        if (respuesta != null && Asistente.alRecibir(this, respuesta.first, respuesta.second)) {
+            cancelNotification(sbn.key)
+            return
+        }
+
         val prefs = Prefs(this)
         if (!prefs.smsEnabled) return
         val profile = PremiumStore(this).read().activeProfile

@@ -151,7 +151,10 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
         val store = ArchiveStore(context)
         store.save(store.read().restoreThread(threadId))
         val silence = try { SmsNotifications.shouldSilence(context, from) } catch (_: Exception) { false }
-        if (silence) Prefs(context).addSilencedSms(from, body, System.currentTimeMillis())
+        // Asistente (Premium): si es la respuesta a su SMS, el aviso lleva Responder, Ignorar y Bloquear.
+        val asistente = try { Asistente.alRecibir(context, from, body) } catch (_: Exception) { false }
+        if (asistente) Unit
+        else if (silence) Prefs(context).addSilencedSms(from, body, System.currentTimeMillis())
         else SmsNotifications.incoming(context, threadId, from, body)
     }
     }

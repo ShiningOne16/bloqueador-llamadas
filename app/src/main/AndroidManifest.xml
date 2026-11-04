@@ -80,6 +80,7 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".SmsSentReceiver" android:exported="false" />
+        <receiver android:name=".AsistenteAccionReceiver" android:exported="false" />
         <receiver android:name=".MmsDownloadReceiver" android:exported="false" />
         <receiver android:name=".SmsRecoveryReceiver" android:exported="false">
             <intent-filter>

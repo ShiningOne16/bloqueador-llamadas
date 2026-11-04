@@ -121,6 +121,13 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   agenda (también en Google), su registro de llamadas y sus SMS (estos solo si Bloqueador es la app
   predeterminada). Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
   y sus llamadas anteriores.
+- **Asistente de llamadas:** cuando llama alguien que no está en tus contactos, la llamada se **silencia** (sigue
+  activa, sin sonar) y se le manda un SMS: "soy el asistente de …, responde con tu nombre y el motivo". Si responde,
+  llega una notificación con su mensaje, una clasificación por palabras clave (entrega o cita, publicidad, incierto) y
+  los botones **Responder**, **Ignorar** y **Bloquear**. A cada número se le escribe una vez al día (si vuelve a
+  llamar, suena normal) y hay un máximo de 5 SMS por hora. Respeta los bloqueos, los contactos ocultos y las
+  excepciones de tus perfiles, y solo actúa con el filtro activo. Necesita el permiso de SMS y el de contactos;
+  cada SMS puede costar según tu plan. No usa voz ni servidores: Android no deja a una app hablar con quien llama.
 - **Notas de números:** ponle una etiqueta (hasta 30 letras) y una nota (hasta 200) a cualquier número, desde el panel
   de una llamada o desde Premium → Notas de números. Si el número no está en tu agenda, la etiqueta aparece como su
   nombre en Recientes y la búsqueda también la encuentra. Se guardan solo en tu teléfono; los números de contactos

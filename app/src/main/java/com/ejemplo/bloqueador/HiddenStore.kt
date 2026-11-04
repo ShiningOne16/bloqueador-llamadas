@@ -234,6 +234,7 @@ object HiddenWipe {
         }
 
         NoteStore(context).removeKeys(keys)
+        AsistenteStore(context).borrarClaves(keys)
         store.wipe()
         return WipeReport(deletable.size, contactsDeleted, calls.size, callsDeleted, threads.size, smsDeleted, smsSkipped)
     }
