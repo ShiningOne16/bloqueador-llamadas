@@ -222,7 +222,7 @@ fun FormularioContacto(peticion: PeticionFormulario, onCerrar: () -> Unit, onGua
                 Tarjeta {
                     FilaInterruptor(
                         Icons.Filled.Star, "Favorito",
-                        "Aparece arriba en tu lista de contactos.", form.favorito
+                        "Aparece en Favoritos dentro de Recientes.", form.favorito
                     ) { form = form.copy(favorito = it) }
                 }
             }
@@ -391,3 +391,4 @@ private fun Aviso(texto: String) {
         }
     }
 }
+
