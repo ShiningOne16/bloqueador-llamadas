@@ -109,9 +109,9 @@ val LocalColoresExtra = staticCompositionLocalOf { ExtraClaro }
 /** Escala tipográfica modular (base 16sp, interlineado 1.5) con títulos más firmes. */
 private val Tipografia = Typography().run {
     copy(
-        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp),
-        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
+        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
+        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.1).sp),
         titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),
         bodyLarge = bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp),
         bodyMedium = bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp),

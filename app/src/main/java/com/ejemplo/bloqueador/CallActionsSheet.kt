@@ -5,11 +5,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Edit
@@ -34,7 +38,10 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCerrar: () -> Unit) {
+fun HojaNumero(
+    numero: String, nombre: String?, historial: List<CallEntry>, onCerrar: () -> Unit,
+    archivado: Boolean = false, onArchivar: (() -> Unit)? = null, onEliminar: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val abrirFormulario = LocalAbrirFormulario.current
     val scope = rememberCoroutineScope()
@@ -64,30 +71,60 @@ fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCe
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = Esp.xl)) {
-            Text(title, style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.s), textAlign = TextAlign.Center)
-            Row(Modifier.fillMaxWidth().padding(horizontal = Esp.s, vertical = Esp.m)) {
-                CallAction(Icons.Filled.Call, "Llamada", valid, { Acciones.llamar(context, numero); onCerrar() }, Modifier.weight(1f))
-                CallAction(Icons.Filled.Chat, "WhatsApp", valid, { if (Acciones.whatsapp(context, numero)) onCerrar() }, Modifier.weight(1f), whatsapp = true)
+            Column(Modifier.fillMaxWidth().padding(horizontal = Esp.l), horizontalAlignment = Alignment.CenterHorizontally) {
+                Avatar(title, 72.dp)
+                Spacer(Modifier.height(Esp.m))
+                Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (nombre != null && numero.isNotBlank()) {
+                    Text(numero, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = Esp.s, vertical = Esp.l)) {
+                CallAction(Icons.Filled.Call, "Llamar", valid, { Acciones.llamar(context, numero); onCerrar() }, Modifier.weight(1f), TonoAccion.Principal)
+                CallAction(Icons.Filled.Chat, "WhatsApp", valid, { if (Acciones.whatsapp(context, numero)) onCerrar() }, Modifier.weight(1f), TonoAccion.WhatsApp)
                 CallAction(Icons.Filled.Edit, "Editar", valid && !editing, {
                     if (Contacts.hasPermission(context)) edit() else readContacts.launch(Manifest.permission.READ_CONTACTS)
-                }, Modifier.weight(1f))
+                }, Modifier.weight(1f), TonoAccion.Neutro)
                 CallAction(if (blocked) Icons.Filled.LockOpen else Icons.Filled.Block,
-                    if (blocked) "Desbloquear" else "Bloquear", canBlock, { confirmBlock = true }, Modifier.weight(1f))
+                    if (blocked) "Desbloquear" else "Bloquear", canBlock, { confirmBlock = true }, Modifier.weight(1f),
+                    if (blocked) TonoAccion.Neutro else TonoAccion.Peligro)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            ListItem(
-                leadingContent = { Icon(Icons.Filled.Call, contentDescription = null) },
-                headlineContent = { Text(numero.ifBlank { "Número oculto" }, style = MaterialTheme.typography.titleMedium) },
-                supportingContent = { Text(if (blocked) "Llamadas bloqueadas manualmente" else if (nombre != null) "Contacto guardado" else "No está en tu agenda") },
-                trailingContent = { IconButton(enabled = valid, onClick = { Acciones.mensaje(context, numero); onCerrar() }) {
-                    Icon(Icons.Filled.Sms, contentDescription = "Enviar SMS a $title")
-                } }, colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-            )
+            Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                ListItem(
+                    leadingContent = { Icon(Icons.Filled.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    headlineContent = { Text(numero.ifBlank { "Número oculto" }, style = MaterialTheme.typography.titleMedium) },
+                    supportingContent = { Text(if (blocked) "Llamadas bloqueadas manualmente" else if (nombre != null) "Contacto guardado" else "No está en tu agenda") },
+                    trailingContent = { IconButton(enabled = valid, onClick = { Acciones.mensaje(context, numero); onCerrar() }) {
+                        Icon(Icons.Filled.Sms, contentDescription = "Enviar SMS a $title", tint = MaterialTheme.colorScheme.primary)
+                    } }, colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
             if (historial.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text("Historial", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(Esp.l))
-                historial.forEach { call -> Box(Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.s)) { LineaTipo(call) } }
+                Rotulo("Historial")
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    historial.forEachIndexed { i, call ->
+                        if (i > 0) HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                        Box(Modifier.fillMaxWidth().padding(horizontal = Esp.l, vertical = Esp.m)) { LineaTipo(call) }
+                    }
+                }
+            }
+            if (onArchivar != null || onEliminar != null) {
+                Spacer(Modifier.height(Esp.m))
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    if (onArchivar != null) ListItem(
+                        modifier = Modifier.clickable(role = Role.Button) { onCerrar(); onArchivar() },
+                        leadingContent = { Icon(if (archivado) Icons.Filled.Unarchive else Icons.Filled.Archive, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        headlineContent = { Text(if (archivado) "Desarchivar" else "Archivar") },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    if (onArchivar != null && onEliminar != null) HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    if (onEliminar != null) ListItem(
+                        modifier = Modifier.clickable(role = Role.Button) { onCerrar(); onEliminar() },
+                        leadingContent = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        headlineContent = { Text("Eliminar del registro", color = MaterialTheme.colorScheme.error) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
             }
         }
     }
@@ -99,15 +136,22 @@ fun HojaNumero(numero: String, nombre: String?, historial: List<CallEntry>, onCe
         }, onCancelar = { confirmBlock = false })
 }
 
+private enum class TonoAccion { Principal, WhatsApp, Neutro, Peligro }
+
 @Composable
-private fun CallAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier, whatsapp: Boolean = false) {
+private fun CallAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier, tono: TonoAccion) {
+    val extra = LocalColoresExtra.current
+    val oscuro = isSystemInDarkTheme()
+    val (fondo, color) = when (tono) {
+        TonoAccion.Principal -> extra.marca to extra.onMarca
+        TonoAccion.WhatsApp -> if (oscuro) Color(0xFF14532D) to Color(0xFFBBF7D0) else Color(0xFFD3EDDF) to Color(0xFF075E34)
+        TonoAccion.Neutro -> MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.onSurface
+        TonoAccion.Peligro -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    }
     Column(modifier.clip(MaterialTheme.shapes.medium).clickable(enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
         .alpha(if (enabled) 1f else 0.4f).heightIn(min = 88.dp).padding(vertical = Esp.s),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-        IconoCirculo(icon,
-            fondo = if (whatsapp) Color(0xFFD3EDDF) else MaterialTheme.colorScheme.primaryContainer,
-            color = if (whatsapp) Color(0xFF075E34) else MaterialTheme.colorScheme.onPrimaryContainer,
-            tamano = 54.dp)
-        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        IconoCirculo(icon, fondo = fondo, color = color, tamano = 56.dp)
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

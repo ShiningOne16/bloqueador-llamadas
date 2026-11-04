@@ -2,6 +2,7 @@ package com.ejemplo.bloqueador
 
 import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,17 +88,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
             contentPadding = PaddingValues(horizontal = Esp.l, vertical = Esp.s),
             verticalArrangement = Arrangement.spacedBy(Esp.m)
         ) {
-            item {
-                Tarjeta {
-                    Column(Modifier.padding(Esp.l), verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall)
-                        Text("Horarios · Excepciones · Perfiles · Contactos ocultos", style = MaterialTheme.typography.titleMedium)
-                        Text("Vista previa gratuita. La suscripción mensual todavía no está disponible y no se realizan cobros.",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            item { PremiumHero() }
             item {
                 Tarjeta {
                     FilaAccion(
@@ -360,4 +354,31 @@ private fun ExceptionDialog(existing: List<NumberException>, onClose: () -> Unit
         confirmButton = { TextButton(enabled = validNumber && !duplicate, onClick = { onAdd(NumberException(number.trim(), label.trim(), action)) }) { Text("Agregar") } },
         dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } }
     )
+}
+
+/** Tarjeta de bienvenida: degradado azul noche con la marca como acento. Texto claro (≥ 5.7:1). */
+@Composable
+private fun PremiumHero() {
+    val extra = LocalColoresExtra.current
+    val degradado = Brush.linearGradient(listOf(Color(0xFF0F1319), Color(0xFF17407A)))
+    val texto = Color(0xFFE7E9EA)
+    val suave = Color(0xFFB6C2CF)
+    Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(degradado).padding(Esp.xl)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Esp.m)) {
+            IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 48.dp)
+            Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall, color = texto)
+            Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
+                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos").forEach { beneficio ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
+                        Icon(Icons.Filled.Check, contentDescription = null, tint = extra.marca, modifier = Modifier.size(18.dp))
+                        Text(beneficio, style = MaterialTheme.typography.bodyLarge, color = texto)
+                    }
+                }
+            }
+            Text(
+                "Vista previa gratuita. La suscripción mensual todavía no está disponible y no se realizan cobros.",
+                style = MaterialTheme.typography.bodyMedium, color = suave
+            )
+        }
+    }
 }

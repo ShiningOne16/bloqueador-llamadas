@@ -1,9 +1,11 @@
 package com.ejemplo.bloqueador
 
 import android.text.format.DateUtils
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.selection.toggleable
@@ -17,9 +19,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -174,24 +181,35 @@ fun Separador() {
 // Avatar
 // -------------------------------------------------------------------------------------------
 
-// Tonos 700/800: todos con contraste ≥ 5:1 frente al texto blanco
-private val COLORES_AVATAR = listOf(
-    Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFFC62828), Color(0xFF6A1B9A),
-    Color(0xFFBF360C), Color(0xFF00695C), Color(0xFF283593), Color(0xFFAD1457)
+/** Fondo suave + letra oscura (claro) o fondo profundo + letra clara (oscuro); contraste ≥ 7:1. */
+private class TonoAvatar(val fondoClaro: Long, val letraClara: Long, val fondoOscuro: Long, val letraOscura: Long)
+
+private val TONOS_AVATAR = listOf(
+    TonoAvatar(0xFFDCEBFC, 0xFF0B3A73, 0xFF17407A, 0xFFDCEBFC),
+    TonoAvatar(0xFFDCFCE7, 0xFF14532D, 0xFF14532D, 0xFFBBF7D0),
+    TonoAvatar(0xFFFEE2E2, 0xFF7F1D1D, 0xFF7F1D1D, 0xFFFEE2E2),
+    TonoAvatar(0xFFEDE4FA, 0xFF4A1D7A, 0xFF3F2468, 0xFFE9DDFB),
+    TonoAvatar(0xFFFFE8D6, 0xFF7C2D12, 0xFF6B2A0E, 0xFFFFE1CC),
+    TonoAvatar(0xFFD5F2EE, 0xFF0F4C46, 0xFF0F4C46, 0xFFC8F1EC),
+    TonoAvatar(0xFFE0E4FB, 0xFF1E2A78, 0xFF232C6B, 0xFFDDE2FB),
+    TonoAvatar(0xFFFCE4EF, 0xFF7A1646, 0xFF6B1640, 0xFFFBDCEA)
 )
 
-/** Círculo de color con la inicial del nombre (decorativo para lectores de pantalla). */
+/** Círculo tonal con la inicial del nombre (decorativo para lectores de pantalla). */
 @Composable
 fun Avatar(nombre: String, tamano: Dp = 44.dp) {
     val inicial = nombre.trim().firstOrNull()?.takeIf { it.isLetter() }?.uppercaseChar()?.toString() ?: "#"
-    val color = COLORES_AVATAR[abs(nombre.hashCode() % COLORES_AVATAR.size)]
+    val tono = TONOS_AVATAR[abs(nombre.hashCode() % TONOS_AVATAR.size)]
+    val oscuro = isSystemInDarkTheme()
+    val fondo = Color(if (oscuro) tono.fondoOscuro else tono.fondoClaro)
+    val letra = Color(if (oscuro) tono.letraOscura else tono.letraClara)
     Box(
-        Modifier.size(tamano).clip(CircleShape).background(color).clearAndSetSemantics { },
+        Modifier.size(tamano).clip(CircleShape).background(fondo).clearAndSetSemantics { },
         contentAlignment = Alignment.Center
     ) {
         Text(
             inicial,
-            color = Color.White,
+            color = letra,
             fontWeight = FontWeight.SemiBold,
             style = if (tamano >= 56.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium
         )
@@ -272,6 +290,19 @@ fun Filtros(opciones: List<String>, seleccionado: Int, onSeleccion: (Int) -> Uni
                 leadingIcon = if (activo) {
                     { Icon(Icons.Default.Check, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) }
                 } else null,
+                shape = CircleShape,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = Color.Transparent,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = activo,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = Color.Transparent
+                ),
                 modifier = Modifier.heightIn(min = 40.dp)
             )
         }
@@ -313,20 +344,23 @@ fun Buscador(valor: String, onCambio: (String) -> Unit, sugerencia: String) {
 
 /**
  * Fila con gestos como la de Samsung: deslizar a la derecha llama y a la izquierda manda mensaje.
- * La fila siempre regresa a su lugar; los botones de la fila siguen disponibles sin gestos.
+ * El fondo muestra ícono y nombre de la acción, crece al acercarse al umbral y vibra suave al
+ * cruzarlo. La fila siempre regresa a su lugar; los botones de la fila siguen disponibles sin gestos.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilaDeslizable(
     alLlamar: (() -> Unit)?,
     alMensaje: (() -> Unit)?,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     if (alLlamar == null && alMensaje == null) {
-        content()
+        Box(modifier) { content() }
         return
     }
     val extra = LocalColoresExtra.current
+    val haptic = LocalHapticFeedback.current
     val estado = rememberSwipeToDismissBoxState(
         confirmValueChange = { destino ->
             when (destino) {
@@ -337,27 +371,47 @@ fun FilaDeslizable(
             false
         }
     )
+    // Una vibración breve al cruzar el umbral, para sentir que el gesto "engancha".
+    LaunchedEffect(estado.targetValue) {
+        if (estado.targetValue != SwipeToDismissBoxValue.Settled) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
     SwipeToDismissBox(
         state = estado,
+        modifier = modifier,
         enableDismissFromStartToEnd = alLlamar != null,
         enableDismissFromEndToStart = alMensaje != null,
         backgroundContent = {
             val haciaLlamar = estado.dismissDirection == SwipeToDismissBoxValue.StartToEnd
             val haciaMensaje = estado.dismissDirection == SwipeToDismissBoxValue.EndToStart
+            val enganchado = estado.targetValue != SwipeToDismissBoxValue.Settled
+            val escala by animateFloatAsState(if (enganchado) 1.12f else 0.92f, label = "escalaGesto")
+            val fondo = when {
+                haciaLlamar -> extra.llamar
+                haciaMensaje -> MaterialTheme.colorScheme.primary
+                else -> Color.Transparent
+            }
+            val sobre = if (haciaLlamar) extra.onLlamar else MaterialTheme.colorScheme.onPrimary
             Box(
-                Modifier.fillMaxSize()
-                    .background(
-                        when {
-                            haciaLlamar -> extra.llamar
-                            haciaMensaje -> MaterialTheme.colorScheme.primary
-                            else -> Color.Transparent
-                        }
-                    )
-                    .padding(horizontal = Esp.xl),
+                Modifier.fillMaxSize().background(fondo).padding(horizontal = Esp.xl),
                 contentAlignment = if (haciaLlamar) Alignment.CenterStart else Alignment.CenterEnd
             ) {
-                if (haciaLlamar) Icon(Icons.Filled.Call, contentDescription = null, tint = extra.onLlamar)
-                if (haciaMensaje) Icon(Icons.Filled.Sms, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                if (haciaLlamar || haciaMensaje) {
+                    Row(
+                        Modifier.scale(escala),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Esp.s)
+                    ) {
+                        if (haciaLlamar) {
+                            Icon(Icons.Filled.Call, contentDescription = null, tint = sobre)
+                            Text("Llamar", color = sobre, style = MaterialTheme.typography.labelLarge)
+                        } else {
+                            Text("Mensaje", color = sobre, style = MaterialTheme.typography.labelLarge)
+                            Icon(Icons.Filled.Sms, contentDescription = null, tint = sobre)
+                        }
+                    }
+                }
             }
         }
     ) {
@@ -417,6 +471,9 @@ fun BotonRedondo(icono: ImageVector, texto: String, onClick: () -> Unit, destaca
 // -------------------------------------------------------------------------------------------
 // Utilidades de texto
 // -------------------------------------------------------------------------------------------
+
+/** Solo la hora ("14:32"), para filas que ya están bajo un encabezado de día. */
+fun horaCorta(ts: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ts))
 
 /** Hoy → "14:32"; ayer → "Ayer 14:32"; antes → "24/10/26 14:32". */
 fun fechaCorta(ts: Long): String {

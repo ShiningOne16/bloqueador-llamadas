@@ -11,7 +11,7 @@ Dentro de **Recientes**, una barra inferior agrupa **Recientes, Contactos y Favo
 independiente de **Marcar** a su lado. El botón Atrás vuelve al registro de llamadas; tocar Marcar
 otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y número marcado al cambiar de sección.
 
-- **Recientes:** registro de llamadas con búsqueda (por nombre o número) y filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto. Desliza una fila a la derecha para llamar o a la izquierda para mandar SMS (la fila regresa sola a su lugar).
+- **Recientes:** registro de llamadas con búsqueda (por nombre o número) y filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto. Las llamadas se agrupan por día (Hoy, Ayer, día de la semana, fecha). Desliza una fila a la derecha para llamar o a la izquierda para mandar SMS: el fondo muestra la acción, crece al acercarse y vibra suave al engancharse (la fila regresa sola a su lugar).
 - **Contactos:** tu agenda con búsqueda en píldora (sin importar acentos), favoritos, filtro por origen, botón **+** para crear y los mismos gestos de deslizar para llamar o mandar SMS. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
 - **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
@@ -50,7 +50,7 @@ varios SMS individuales. Atrás o la X cancelan la selección. Los gestos de lla
 seleccionas. Los registros nuevos no se añaden solos a la selección y los SMS posteriores al corte se conservan.
 El borrado múltiple de SMS requiere que Bloqueador sea la app predeterminada.
 
-- En **Recientes**, abre el menú **⋮** de una fila para **Archivar**, **Desarchivar** o **Eliminar**.
+- En **Recientes**, toca una llamada y usa el panel inferior para **Archivar**, **Desarchivar** o **Eliminar del registro**; también puedes mantenerla pulsada para seleccionar varias.
   Si la fila agrupa varias llamadas, la acción afecta únicamente a los registros de ese grupo.
   El filtro **Archivadas** permite recuperarlas. Archivar solo las oculta en Bloqueador; las llamadas
   nuevas del mismo número siguen apareciendo normalmente.
@@ -173,6 +173,11 @@ Modo claro y oscuro con contraste mínimo 4.5:1: sobre el azul `#4C98E9` el text
 solo daría 3:1) y, en modo claro, los textos e íconos azules usan un tono más profundo del mismo matiz.
 Íconos vectoriales con texto, botones de al menos 48 dp, bienvenida que explica los permisos antes
 de pedirlos y confirmación antes de borrar. Colores, letra y espaciado están en `Theme.kt`.
+
+Acabado premium: avatares tonales (fondo suave y letra oscura, contraste ≥ 7:1), filtros en píldora,
+panel de llamada con acción principal en azul de marca, tarjeta de protección discreta, tarjeta
+Premium con degradado azul noche, filas que se reordenan con animación y vibración suave en gestos
+y selección.
 
 ## Estructura
 - `BlockerService.kt` – decide si cada llamada entrante pasa o se rechaza.
