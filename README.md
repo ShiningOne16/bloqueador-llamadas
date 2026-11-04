@@ -6,10 +6,14 @@ root ni quedarse abierta: Android le pregunta a la app antes de que suene cada l
 
 ## Qué hace
 
-Funciona como app de teléfono, con cinco pestañas (Recientes, Contactos, Marcar, Mensajes y Protección):
+Funciona como app de teléfono, con tres pestañas principales (Recientes, Mensajes y Protección).
+Dentro de **Recientes**, una barra inferior agrupa **Recientes, Contactos y Favoritos**, con un botón
+independiente de **Marcar** a su lado. El botón Atrás vuelve al registro de llamadas; tocar Marcar
+otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y número marcado al cambiar de sección.
 
 - **Recientes:** registro de llamadas con filtros (todas, perdidas, bloqueadas). Toca una para ver su historial, llamar, mandar SMS o guardarla como contacto.
 - **Contactos:** tu agenda con búsqueda (sin importar acentos), favoritos y filtro por origen. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
+- **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
 - **Mensajes:** tus SMS por conversación, con filtros de no leídos y desconocidos. "Responder" abre tu app de SMS.
 - **Protección:** te dice en una frase si estás protegido, los pasos que faltan, los ajustes y la actividad.
@@ -65,6 +69,7 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `Contacts.kt` – consultas a la agenda.
 - `Prefs.kt` – ajustes y registro de llamadas bloqueadas.
 - `MainActivity.kt` – navegación entre pestañas (Jetpack Compose).
+- `ScreenPhone.kt` – submenú de Recientes, Contactos, Favoritos y Marcar.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
 - `ScreenRecents.kt`, `ScreenContacts.kt`, `ScreenKeypad.kt`, `ScreenMessages.kt`, `ScreenProtection.kt` – cada pestaña.
 - `Theme.kt` – sistema de diseño (colores, tipografía, formas, espaciado).
@@ -78,3 +83,4 @@ Colores, letra y espaciado están en `Theme.kt`.
 - Android no deja que una app que no es la de mensajes predeterminada bloquee SMS; por eso aquí se silencian
   (el mensaje queda en tu app de SMS, sin avisar).
 - Algunas marcas (Xiaomi, Huawei, etc.) pueden pedir que desactives el ahorro de batería para la app.
+

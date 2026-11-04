@@ -44,7 +44,7 @@ private fun nombreOrigen(t: TipoCuenta?) = when (t) {
 }
 
 @Composable
-fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit) {
+fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit, soloFavoritos: Boolean = false) {
     val context = LocalContext.current
     val abrirFormulario = LocalAbrirFormulario.current
     val tienePermiso = remember(refreshKey) { PhoneData.has(context, Manifest.permission.READ_CONTACTS) }
@@ -61,7 +61,12 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Titulo("Contactos", subtitulo = contactos?.let { "${it.size} con número" })
+            Titulo(
+                if (soloFavoritos) "Favoritos" else "Contactos",
+                subtitulo = contactos?.let { lista ->
+                    "${lista.count { !soloFavoritos || it.starred }} con número"
+                }
+            )
 
             if (!tienePermiso) {
                 PermisoFaltante(
@@ -106,8 +111,9 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit) {
                     Cargando()
                 } else {
                     ListaContactos(
-                        lista.filter { filtroOrigen == null || filtroOrigen in it.cuentas },
+                        lista.filter { (!soloFavoritos || it.starred) && (filtroOrigen == null || filtroOrigen in it.cuentas) },
                         busqueda,
+                        soloFavoritos = soloFavoritos,
                         onNuevo = { abrirFormulario(PeticionFormulario()) }
                     ) { seleccion = it }
                 }
@@ -137,19 +143,19 @@ fun PantallaContactos(refreshKey: Int, pedirPermisos: () -> Unit) {
 private fun ListaContactos(
     lista: List<ContactEntry>,
     busqueda: String,
+    soloFavoritos: Boolean,
     onNuevo: () -> Unit,
     onSeleccion: (ContactEntry) -> Unit
 ) {
     val filtrados = remember(lista, busqueda) { filtrarContactos(lista, busqueda) }
-    val favoritos = remember(lista, busqueda) {
-        if (busqueda.isBlank()) lista.filter { it.starred } else emptyList()
-    }
 
     if (filtrados.isEmpty()) {
         if (busqueda.isBlank()) {
             EstadoVacio(
-                Icons.Filled.Contacts, "No hay contactos aquí",
-                "Guarda a las personas que conoces para que sus llamadas sí suenen.",
+                if (soloFavoritos) Icons.Filled.Star else Icons.Filled.Contacts,
+                if (soloFavoritos) "No hay favoritos aquí" else "No hay contactos aquí",
+                if (soloFavoritos) "Marca un contacto como favorito al crearlo o editarlo para verlo aquí."
+                else "Guarda a las personas que conoces para que sus llamadas sí suenen.",
                 accion = "Crear contacto", onAccion = onNuevo
             )
         } else {
@@ -159,12 +165,6 @@ private fun ListaContactos(
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
-        if (favoritos.isNotEmpty()) {
-            item(key = "fav_header") { Rotulo("Favoritos") }
-            items(favoritos, key = { "fav_${it.id}" }) { c -> FilaContacto(c, onClick = { onSeleccion(c) }) }
-            item(key = "all_header") { Rotulo("Todos") }
-        }
-
         var letraAnterior: Char? = null
         filtrados.forEachIndexed { i, c ->
             val letra = simplificar(c.name).firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() } ?: '#'
@@ -328,3 +328,4 @@ private fun HojaContacto(c: ContactEntry, onCerrar: () -> Unit, onEliminado: () 
         )
     }
 }
+

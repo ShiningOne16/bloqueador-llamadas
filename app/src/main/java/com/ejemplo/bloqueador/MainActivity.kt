@@ -10,15 +10,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PhoneDisabled
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sms
-import androidx.compose.material.icons.outlined.Contacts
-import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PhoneAndroid
@@ -27,6 +23,7 @@ import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,11 +33,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/** Pestañas de la barra inferior (máximo 5, con ícono y texto siempre visibles). */
+/** Navegación principal. Contactos, favoritos y marcador viven dentro de Recientes. */
 enum class Seccion(val titulo: String, val icono: ImageVector, val iconoActivo: ImageVector) {
     RECIENTES("Recientes", Icons.Outlined.History, Icons.Filled.History),
-    CONTACTOS("Contactos", Icons.Outlined.Contacts, Icons.Filled.Contacts),
-    MARCAR("Marcar", Icons.Outlined.Dialpad, Icons.Filled.Dialpad),
     MENSAJES("Mensajes", Icons.Outlined.Sms, Icons.Filled.Sms),
     PROTECCION("Protección", Icons.Outlined.Shield, Icons.Filled.Shield)
 }
@@ -77,6 +72,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
     val prefs = remember { Prefs(context) }
     var seccion by rememberSaveable { mutableStateOf(Seccion.RECIENTES) }
     var bienvenida by rememberSaveable { mutableStateOf(!prefs.bienvenidaVista) }
+    val pantallas = rememberSaveableStateHolder()
 
     val pedir = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onChanged() }
     val pedirPermisos = {
@@ -162,12 +158,12 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         Box(
             Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
         ) {
-            when (seccion) {
-                Seccion.RECIENTES -> PantallaRecientes(refreshKey, pedirPermisos) { seccion = Seccion.PROTECCION }
-                Seccion.CONTACTOS -> PantallaContactos(refreshKey, pedirPermisos)
-                Seccion.MARCAR -> PantallaTeclado(refreshKey)
-                Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos)
-                Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos)
+            pantallas.SaveableStateProvider(seccion.name) {
+                when (seccion) {
+                    Seccion.RECIENTES -> PantallaTelefono(refreshKey, pedirPermisos) { seccion = Seccion.PROTECCION }
+                    Seccion.MENSAJES -> PantallaMensajes(refreshKey, pedirPermisos)
+                    Seccion.PROTECCION -> PantallaProteccion(refreshKey, onChanged, pedirPermisos)
+                }
             }
         }
     }
@@ -248,3 +244,4 @@ private fun Punto(icono: ImageVector, titulo: String, texto: String) {
         colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
     )
 }
+
