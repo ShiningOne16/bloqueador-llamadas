@@ -108,17 +108,19 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     }
 
     var busqueda by rememberSaveable { mutableStateOf("") }
+    var notasVersion by remember { mutableIntStateOf(0) }
+    val notas = remember(refreshKey, notasVersion) { NoteStore(context).map() }
     var seleccion by remember { mutableStateOf<CallGroup?>(null) }
     val selectionMode = selectedKeys.isNotEmpty()
     BackHandler(enabled = selectionMode && !busy) { selectedKeys = emptyList() }
-    val visibleGroups = remember(llamadas, filtro, busqueda, archive) {
+    val visibleGroups = remember(llamadas, filtro, busqueda, archive, notas) {
         val bandeja = llamadas.orEmpty().filter { (it.archiveKey() in archive.calls) == (filtro == 3) }
         val porFiltro = when (filtro) {
             1 -> bandeja.filter { it.isMissedLike }
             2 -> bandeja.filter { it.isBlockedLike }
             else -> bandeja
         }
-        PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda) })
+        PhoneData.groupCalls(porFiltro.filter { coincideBusqueda(it, busqueda, notas[NoteRules.key(it.number)]) })
     }
     val filas = remember(visibleGroups) { DiaRegistro.agrupar(visibleGroups, System.currentTimeMillis()) }
     val haptic = LocalHapticFeedback.current
@@ -190,6 +192,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                                 FilaLlamada(
                                     g,
                                     modifier = Modifier.animateItem(),
+                                    etiqueta = notas[NoteRules.key(g.latest.number)]?.label?.takeIf { it.isNotBlank() },
                                     onClick = {
                                         if (selectionMode) selectedKeys = HistorySelection.toggle(selectedKeys, g.entries.map { it.archiveKey() })
                                         else seleccion = g
@@ -233,7 +236,8 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
                 archiveStore.save(archive)
                 recarga++
             },
-            onEliminar = { deleteTarget = g.entries }
+            onEliminar = { deleteTarget = g.entries },
+            onNotas = { notasVersion++ }
         )
     }
     deleteTarget?.let { calls ->
@@ -327,22 +331,22 @@ internal fun LineaTipo(c: CallEntry, extraTexto: String? = null, conFecha: Boole
 }
 
 /** Coincide por nombre (sin importar acentos) o por dígitos del número, como en Contactos. */
-private fun coincideBusqueda(c: CallEntry, q: String): Boolean {
+private fun coincideBusqueda(c: CallEntry, q: String, nota: NumberNote?): Boolean {
     if (q.isBlank()) return true
     val texto = simplificar(q.trim())
     val digitos = q.filter { it.isDigit() }
     val porNombre = c.name?.let { simplificar(it).contains(texto) } ?: false
     val porNumero = digitos.length >= 2 && c.number.filter { it.isDigit() }.contains(digitos)
-    return porNombre || porNumero
+    return porNombre || porNumero || NoteRules.matches(nota, q)
 }
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit, onMensaje: () -> Unit,
     enabled: Boolean, onLongClick: () -> Unit, selectionMode: Boolean, selectionState: ToggleableState,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier, etiqueta: String? = null) {
     val c = g.latest
-    val titulo = c.name ?: c.number.ifBlank { "Número oculto" }
+    val titulo = NoteRules.title(c.name, etiqueta, c.number)
     val alerta = tipoVista(c.type).alerta
     val hayNumero = c.number.isNotBlank()
     FilaDeslizable(
@@ -378,7 +382,7 @@ private fun FilaLlamada(g: CallGroup, onClick: () -> Unit, onLlamar: () -> Unit,
                 }
             }
         },
-        supportingContent = { LineaTipo(c, conFecha = false) },
+        supportingContent = { LineaTipo(c, extraTexto = if (c.name == null && etiqueta != null) c.number else null, conFecha = false) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.xs)) {
                 Text(

@@ -52,6 +52,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var editing by rememberSaveable { mutableStateOf<ProtectionProfile?>(null) }
     var deleting by rememberSaveable { mutableStateOf<ProtectionProfile?>(null) }
     var viendoOcultos by rememberSaveable { mutableStateOf(false) }
+    var viendoNotas by rememberSaveable { mutableStateOf(false) }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -76,6 +77,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
         )
         return
     }
+    if (viendoNotas) {
+        PantallaNotas(onCerrar = { viendoNotas = false })
+        return
+    }
     if (viendoOcultos) {
         PantallaOcultos(onCerrar = { viendoOcultos = false }, onChanged = onChanged)
         return
@@ -97,6 +102,12 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         "Contactos ocultos",
                         "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos."
                     ) { viendoOcultos = true }
+                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    FilaAccion(
+                        Icons.Filled.Bookmark,
+                        "Notas de números",
+                        "Ponle una etiqueta o nota a cualquier número para reconocerlo cuando llame."
+                    ) { viendoNotas = true }
                 }
             }
             item {
@@ -189,7 +200,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
 }
 
 @Composable
-private fun PremiumHeader(title: String, onClose: () -> Unit) {
+internal fun PremiumHeader(title: String, onClose: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(end = Esp.s), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -430,7 +441,7 @@ private fun PremiumHero() {
             IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 48.dp)
             Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall, color = texto)
             Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos").forEach { beneficio ->
+                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números").forEach { beneficio ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
                         Icon(Icons.Filled.Check, contentDescription = null, tint = extra.marca, modifier = Modifier.size(18.dp))
                         Text(beneficio, style = MaterialTheme.typography.bodyLarge, color = texto)

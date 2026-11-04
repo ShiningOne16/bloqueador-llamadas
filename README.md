@@ -121,6 +121,10 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   agenda (también en Google), su registro de llamadas y sus SMS (estos solo si Bloqueador es la app
   predeterminada). Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
   y sus llamadas anteriores.
+- **Notas de números:** ponle una etiqueta (hasta 30 letras) y una nota (hasta 200) a cualquier número, desde el panel
+  de una llamada o desde Premium → Notas de números. Si el número no está en tu agenda, la etiqueta aparece como su
+  nombre en Recientes y la búsqueda también la encuentra. Se guardan solo en tu teléfono; los números de contactos
+  ocultos no se listan y sus notas se borran si restableces el PIN.
 - **Perfiles:** Trabajo, Noche y Vacaciones vienen preparados. Puedes editarlos, crear otros, eliminarlos
   y seleccionar uno a la vez. Cada perfil guarda su horario, excepciones y reglas de llamadas y SMS.
 

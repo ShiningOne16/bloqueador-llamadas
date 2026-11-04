@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.Call
@@ -40,7 +41,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun HojaNumero(
     numero: String, nombre: String?, historial: List<CallEntry>, onCerrar: () -> Unit,
-    archivado: Boolean = false, onArchivar: (() -> Unit)? = null, onEliminar: (() -> Unit)? = null
+    archivado: Boolean = false, onArchivar: (() -> Unit)? = null, onEliminar: (() -> Unit)? = null,
+    onNotas: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val abrirFormulario = LocalAbrirFormulario.current
@@ -49,6 +51,9 @@ fun HojaNumero(
     var blocked by remember(numero) { mutableStateOf(prefs.manuallyBlocked(numero)) }
     var confirmBlock by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    val noteStore = remember { NoteStore(context) }
+    var nota by remember(numero) { mutableStateOf(noteStore.get(numero)) }
+    var editandoNota by remember { mutableStateOf(false) }
     val valid = SmsPolicy.recipient(numero) != null
     val canBlock = valid && Prefs.normalize(numero).length >= 7
     fun edit() {
@@ -66,7 +71,7 @@ fun HojaNumero(
     val readContacts = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (it) edit() else Toast.makeText(context, "Se necesita acceso a la agenda para editar el contacto.", Toast.LENGTH_LONG).show()
     }
-    val title = nombre ?: numero.ifBlank { "Número oculto" }
+    val title = NoteRules.title(nombre, nota?.label, numero)
     ModalBottomSheet(onDismissRequest = onCerrar,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
@@ -75,7 +80,7 @@ fun HojaNumero(
                 Avatar(title, 72.dp)
                 Spacer(Modifier.height(Esp.m))
                 Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (nombre != null && numero.isNotBlank()) {
+                if (title != numero && numero.isNotBlank()) {
                     Text(numero, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -98,6 +103,19 @@ fun HojaNumero(
                         Icon(Icons.Filled.Sms, contentDescription = "Enviar SMS a $title", tint = MaterialTheme.colorScheme.primary)
                     } }, colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
+            }
+            if (NoteRules.key(numero).isNotEmpty()) {
+                Spacer(Modifier.height(Esp.m))
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    ListItem(
+                        modifier = Modifier.clickable(role = Role.Button, onClickLabel = if (nota == null) "Agregar nota" else "Editar nota") { editandoNota = true },
+                        leadingContent = { Icon(Icons.Filled.Bookmark, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        headlineContent = { Text(nota?.label?.ifBlank { "Nota" } ?: "Agregar nota") },
+                        supportingContent = nota?.note?.takeIf { it.isNotBlank() }?.let { texto -> { Text(texto, maxLines = 3, overflow = TextOverflow.Ellipsis) } },
+                        trailingContent = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
             }
             if (historial.isNotEmpty()) {
                 Rotulo("Historial")
@@ -128,6 +146,15 @@ fun HojaNumero(
             }
         }
     }
+    if (editandoNota) DialogoNota(
+        numeroInicial = numero, editarNumero = false,
+        etiquetaInicial = nota?.label.orEmpty(), notaInicial = nota?.note.orEmpty(), puedeBorrar = nota != null,
+        onGuardar = { n, etiqueta, texto ->
+            noteStore.set(n, etiqueta, texto); nota = noteStore.get(numero); editandoNota = false; onNotas()
+        },
+        onBorrar = { noteStore.remove(numero); nota = null; editandoNota = false; onNotas() },
+        onCerrar = { editandoNota = false }
+    )
     if (confirmBlock) Confirmar(if (blocked) "¿Desbloquear este número?" else "¿Bloquear este número?",
         if (blocked) "Se quitará el bloqueo manual. Los horarios y otras reglas de protección seguirán aplicándose."
         else "Sus llamadas se rechazarán en todos los perfiles, incluso si está en tu agenda o tiene una excepción de permitir. El interruptor de llamadas de Protección permite pausar el bloqueo. No cambia sus SMS.",
