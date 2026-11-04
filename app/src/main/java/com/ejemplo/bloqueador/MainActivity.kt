@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PhoneDisabled
 import androidx.compose.material.icons.filled.Shield
@@ -72,6 +73,7 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
     val prefs = remember { Prefs(context) }
     var seccion by rememberSaveable { mutableStateOf(Seccion.RECIENTES) }
     var bienvenida by rememberSaveable { mutableStateOf(!prefs.bienvenidaVista) }
+    var premiumAbierto by rememberSaveable { mutableStateOf(false) }
     val pantallas = rememberSaveableStateHolder()
 
     val pedir = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onChanged() }
@@ -137,9 +139,35 @@ fun App(refreshKey: Int, onChanged: () -> Unit) {
         return
     }
 
+    if (premiumAbierto) {
+        PantallaPremium(onCerrar = { premiumAbierto = false })
+        return
+    }
+
     CompositionLocalProvider(LocalAbrirFormulario provides abrirFormulario) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Row(
+                    Modifier.fillMaxWidth().statusBarsPadding()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                        .padding(horizontal = Esp.l, vertical = Esp.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Bloqueador", style = MaterialTheme.typography.titleMedium)
+                    FilledTonalButton(
+                        onClick = { premiumAbierto = true },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(Esp.s))
+                        Text("Premium")
+                    }
+                }
+            }
+        },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 Seccion.entries.forEach { s ->

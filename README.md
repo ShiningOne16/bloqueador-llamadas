@@ -32,6 +32,12 @@ La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
 
 Requiere **Android 10 o superior**.
 
+### Premium
+
+El botón **Premium**, visible en las tres secciones principales, abre una pantalla de presentación
+con el estado **Próximamente**. Las funciones de pago y su precio están pendientes de definición;
+todavía no se realizan compras ni se restringen las funciones actuales.
+
 ## Cómo obtener el APK
 
 ### Opción A: Android Studio (computadora)
@@ -70,6 +76,7 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `Prefs.kt` – ajustes y registro de llamadas bloqueadas.
 - `MainActivity.kt` – navegación entre pestañas (Jetpack Compose).
 - `ScreenPhone.kt` – submenú de Recientes, Contactos, Favoritos y Marcar.
+- `ScreenPremium.kt` – presentación de Premium y regreso a la pantalla anterior.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
 - `ScreenRecents.kt`, `ScreenContacts.kt`, `ScreenKeypad.kt`, `ScreenMessages.kt`, `ScreenProtection.kt` – cada pestaña.
 - `Theme.kt` – sistema de diseño (colores, tipografía, formas, espaciado).
