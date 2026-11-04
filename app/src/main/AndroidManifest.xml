@@ -10,6 +10,8 @@
 
     <!-- Funciones de teléfono: registro de llamadas, llamar directo y leer SMS -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- Opcional: se solicita solo al borrar llamadas, no para activar la protección. -->
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_SMS" />
 
@@ -66,3 +68,4 @@
 
     </application>
 </manifest>
+

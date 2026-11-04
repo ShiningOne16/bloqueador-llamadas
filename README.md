@@ -32,6 +32,24 @@ La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
 
 Requiere **Android 10 o superior**.
 
+### Archivar y eliminar llamadas y mensajes
+
+- En **Recientes**, abre el menú **⋮** de una fila para **Archivar**, **Desarchivar** o **Eliminar**.
+  Si la fila agrupa varias llamadas, la acción afecta únicamente a los registros de ese grupo.
+  El filtro **Archivadas** permite recuperarlas. Archivar solo las oculta en Bloqueador; las llamadas
+  nuevas del mismo número siguen apareciendo normalmente.
+- **Eliminar llamadas** pide confirmación y el permiso opcional para escribir en el registro. Borra esos
+  registros del historial del teléfono y de otras apps que lo consulten. Si Android no concede el permiso,
+  se puede abrir la app Teléfono para completar el borrado allí. No modifica la actividad de Protección.
+- En **Mensajes**, el menú **⋮** de una conversación y el de su cabecera permiten **Archivar**, **Desarchivar**
+  o **Eliminar**. El archivo es local a Bloqueador y se consulta desde **Archivadas**. Un SMS nuevo devuelve
+  la conversación a la bandeja al actualizar; los mensajes no se borran y las notificaciones no cambian.
+- **Eliminar SMS** abre tu app de mensajes predeterminada para que completes allí la eliminación.
+  Android solo permite borrar SMS a esa app: Bloqueador explica este paso y no simula que los ha borrado.
+
+El archivo guarda referencias locales; no crea una copia de seguridad. Si borras los originales desde
+otra app, dejan de estar disponibles también en Archivadas. Archivar o desarchivar no exige permisos de escritura.
+
 ### Premium
 
 La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes y Protección. Abre la **vista previa gratuita** de:
@@ -106,6 +124,8 @@ Colores, letra y espaciado están en `Theme.kt`.
 - `ScreenPhone.kt` – submenú de Recientes, Contactos, Favoritos y Marcar.
 - `ScreenPremium.kt` – selección y edición de perfiles, horarios y excepciones.
 - `ScreenScheduledContacts.kt` – selección y búsqueda de números de la agenda para bloquear por horario.
+- `ArchiveState.kt`, `ArchiveStore.kt` – estado y persistencia del archivo local de llamadas y SMS.
+- `HistoryMenu.kt` – acciones de archivar, desarchivar y eliminar.
 - `PremiumRules.kt` – reglas de horario y prioridad de excepciones, sin dependencias de Android.
 - `PremiumStore.kt` – persistencia local de perfiles y selección activa.
 - `PhoneData.kt` – lectura de registro de llamadas, contactos y SMS; acciones (llamar, SMS, contactos).
