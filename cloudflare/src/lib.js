@@ -5,6 +5,16 @@ export const UMBRAL_REPORTES = 3;        // personas distintas para entrar en la
 export const MAX_REPORTES_POR_DIA = 30;  // por IP y por instalación
 export const RETENCION_DIAS = 180;
 export const DIA_MS = 24 * 60 * 60 * 1000;
+export const VIGENCIA_LISTA_MS = 7 * DIA_MS;
+
+/** La comunidad de esta versión cubre México; evita colisiones con países distintos. */
+export function numeroMexicano(numero) {
+  if (typeof numero !== 'string' || !claveNumero(numero)) return false;
+  const digits = numero.replace(/[^0-9]/g, '');
+  return (digits.length === 12 && digits.startsWith('52')) ||
+    (digits.length === 14 && digits.startsWith('0052')) ||
+    (!numero.trim().startsWith('+') && digits.length === 10);
+}
 
 /** Últimos 10 dígitos, como en la app. Devuelve '' si no parece un teléfono (7 a 15 dígitos). */
 export function claveNumero(numero) {

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -58,12 +59,24 @@ fun HojaNumero(
     var editandoNota by remember { mutableStateOf(false) }
     val spamStore = remember { SpamStore(context) }
     var reportado by remember(numero) { mutableStateOf(spamStore.reportado(numero)) }
+    var reporteLocal by remember(numero) { mutableStateOf(spamStore.tieneReporteLocal(numero)) }
     var permitidoSpam by remember(numero) { mutableStateOf(spamStore.permitido(numero)) }
     val enLista = remember(numero) { SpamLista.categoria(context, numero) }
     var reportando by remember { mutableStateOf(false) }
     var dialogoSpam by remember { mutableStateOf(false) }
     val valid = SmsPolicy.recipient(numero) != null
     val canBlock = valid && Prefs.normalize(numero).length >= 7
+    fun retirarMiReporte() {
+        reportando = true
+        scope.launch {
+            try {
+                val error = withContext(Dispatchers.IO) { SpamComunidad.retirar(context, numero) }
+                reportado = spamStore.reportado(numero)
+                Toast.makeText(context, error ?: "Tu reporte se retiró. No es spam en este teléfono.", Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) { throw e
+            } finally { reportando = false }
+        }
+    }
     fun edit() {
         if (editing) return
         editing = true
@@ -125,9 +138,13 @@ fun HojaNumero(
                     )
                 }
             }
-            if (nombre == null && SpamRules.reportable(numero)) {
+            if (SpamRules.reportable(numero)) {
                 Spacer(Modifier.height(Esp.m))
                 Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    if (SpamRules.sugerirRevision(nombre, nota?.label, historial.any { it.type == android.provider.CallLog.Calls.MISSED_TYPE }) && !reportado) {
+                        Text("¿Reconoces esta llamada? Una llamada perdida o un nombre guardado no demuestran que sea spam. Repórtala solo si la revisaste.",
+                            Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+                    }
                     if (enLista != null) {
                         ListItem(
                             leadingContent = { Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -136,22 +153,31 @@ fun HojaNumero(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                         HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    if (enLista != null || reportado || reporteLocal || permitidoSpam) {
                         ListItem(
-                            modifier = Modifier.clickable(role = Role.Switch) {
+                            modifier = Modifier.clickable(enabled = !reportando, role = Role.Switch) {
                                 permitidoSpam = !permitidoSpam; spamStore.permitir(numero, permitidoSpam)
+                                if (permitidoSpam) {
+                                    SpamComunidad.noEsSpamLocal(context, numero); blocked = false; reporteLocal = false
+                                    if (reportado) retirarMiReporte()
+                                }
                             },
                             headlineContent = { Text("No es spam") },
-                            supportingContent = { Text("Deja de bloquearse por la lista en este teléfono") },
+                            supportingContent = { Text("Quita tu bloqueo manual y evita el bloqueo por la lista. Otras reglas personales siguen aplicándose.") },
                             trailingContent = { Switch(checked = permitidoSpam, onCheckedChange = null) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                         HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
                     }
+                    if (reportado && permitidoSpam) {
+                        TextButton(enabled = !reportando, onClick = { retirarMiReporte() }) { Text("Reintentar retirar mi reporte") }
+                    }
                     ListItem(
                         modifier = Modifier.clickable(enabled = !reportado && !reportando, role = Role.Button) { dialogoSpam = true },
                         leadingContent = { Icon(Icons.Filled.Report, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         headlineContent = { Text(if (reportado) "Ya lo reportaste" else "Reportar como spam") },
-                        supportingContent = { Text("Ayuda a que otros no contesten este número") },
+                        supportingContent = { Text(if (reportando) "Enviando…" else "Tú decides qué enviar. Tu agenda e historial se quedan aquí.") },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
@@ -186,17 +212,26 @@ fun HojaNumero(
         }
     }
     if (dialogoSpam) DialogoReporteSpam(
-        numero = numero, puedeBloquear = canBlock && !blocked,
-        onReportar = { categoria, bloquear ->
+        numero = numero,
+        onReportar = { categoria ->
             dialogoSpam = false
-            if (bloquear) { prefs.setManualBlock(numero, true); blocked = true }
             reportando = true
             scope.launch {
-                val error = withContext(Dispatchers.IO) { SpamComunidad.reportar(context, numero, categoria) }
-                reportando = false
-                if (error == null) reportado = spamStore.reportado(numero)
-                Toast.makeText(context,
-                    error ?: "Reporte enviado. Gracias.", Toast.LENGTH_LONG).show()
+                try {
+                    val privacidad = withContext(Dispatchers.IO) { SpamComunidad.errorReporte(context, numero) }
+                    if (privacidad != null) {
+                        Toast.makeText(context, privacidad, Toast.LENGTH_LONG).show()
+                    } else {
+                        prefs.setManualBlock(numero, true); blocked = true
+                        spamStore.permitir(numero, false); permitidoSpam = false
+                        spamStore.marcarReporteLocal(numero); reporteLocal = true
+                        val error = withContext(Dispatchers.IO) { SpamComunidad.reportar(context, numero, categoria) }
+                        reportado = spamStore.reportado(numero)
+                        Toast.makeText(context, error?.let { "Número bloqueado en tu teléfono. $it" }
+                            ?: "Número bloqueado y reporte enviado. Gracias.", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: CancellationException) { throw e
+                } finally { reportando = false }
             }
         },
         onCerrar = { dialogoSpam = false }

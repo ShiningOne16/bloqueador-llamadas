@@ -2,7 +2,10 @@
 
 Un Worker de Cloudflare con una base D1 (reportes) y un KV (la lista publicada).
 El coste de Cloudflare depende del volumen y los límites del plan. El acceso a Tellows se contrata por separado.
-No guarda números legibles (solo una huella de 12 caracteres) ni IP ni identificadores (solo huellas con una sal secreta).
+La app transmite únicamente el número elegido, la categoría y un identificador aleatorio de instalación
+al confirmar un reporte; Cloudflare también recibe la IP de la conexión. La base guarda huellas del
+número y huellas con sal secreta de la IP y la instalación. Esto reduce la exposición, pero no garantiza
+anonimato: el espacio de números telefónicos puede enumerarse. No se reciben agendas ni historiales.
 
 ## Montarlo (una sola vez)
 
@@ -65,12 +68,44 @@ Referencia del formato y parámetros: [documentación oficial](https://si.tellow
 
 ## Cómo funciona
 
-- `POST /reportar` `{numero, categoria, instalacion}`: una red y una instalación solo cuentan una vez por número; máximo 30 reportes al día por red e instalación.
+- `POST /reportar` `{numero, categoria, instalacion}`: solo números mexicanos; una red y una instalación
+  cuentan una vez por número. Máximo 30 intentos al día por red e instalación. Se rechazan lotes y campos
+  adicionales (nombres, agendas, historiales, etc.). No prueba que cada instalación sea una persona distinta;
+  las reinstalaciones y redes coordinadas siguen siendo una limitación de estos controles.
+- `POST /retirar` `{numero, instalacion}`: retira únicamente el voto de esa instalación y vuelve a publicar
+  la lista. Es idempotente y admite reintentos tras fallos de publicación. Tiene un límite separado de
+  30 solicitudes al día por red e instalación, sin reiniciar los contadores de reportes.
 - `GET /lista`: JSON `{v, generado, min, n:[[huella, categoria, reportes]]}` con los números reportados por al menos 3 personas distintas.
 - `GET /lista?fuentes=2`: añade Tellows cuando esté autorizado y configurado. Sus entradas son
   `[huella, 0, 0, "tellows", score]`; `tellows_hasta` indica su caducidad en milisegundos. El cero
   en reportes no se interpreta como tres reportes propios. `fuentes.tellows` informa del estado.
-- Los reportes se borran a los 180 días.
+- `GET /lista?fuentes=3`: mismo formato combinado, con `comunidad_hasta`. La comunidad caduca en la app
+  como máximo 7 días después de `generado`, incluso sin conexión. La app también calcula ese límite para
+  listas de servidores antiguos que no traigan el campo. Las listas comunitarias sin fecha no se usan.
+- Los reportes se borran a los 180 días. La lista pública se regenera cada 6 horas y al retirar un reporte;
+  la caché HTTP puede durar una hora. Las copias en otros teléfonos se corrigen en su próxima descarga o
+  al caducar. No existe revocación inmediata sin conexión y las versiones antiguas no aplican el nuevo
+  límite de 7 días.
+
+## Reportes voluntarios en Android (2.1.5)
+
+La agenda y el historial se consultan únicamente en el teléfono. Una llamada perdida o un nombre/nota
+que contenga «spam», «estafa» o «fraude» solo muestra una sugerencia de revisión al abrir su panel.
+Nunca se reporta automáticamente ni se crea una lista blanca comunitaria con los contactos.
+
+**Reportar y bloquear** muestra primero el número, la categoría y los datos que se transmitirán. Al
+confirmar, el bloqueo personal queda activo aunque falle internet; el envío puede reintentarse. Antes
+de abrir la conexión se excluyen contactos ocultos y los de la sesión con NIP alternativo. Si la lista
+privada no puede descifrarse, no se autoriza el envío.
+
+**No es spam** quita el bloqueo manual y añade una excepción local a la lista de spam. Si había un voto
+enviado, intenta retirarlo; un fallo de red no deshace la corrección local y se ofrece un botón para
+reintentar. Los horarios, concentración y otras reglas personales siguen aplicándose.
+
+Este cambio requiere desplegar el Worker actualizado para habilitar `/retirar`; un servidor anterior
+seguirá aceptando los reportes normales y la corrección local funcionará, pero retirar el voto dará un
+error recuperable hasta el despliegue. No hay cambios de esquema. Usa D1, KV y SAL existentes, sin
+reemplazar identificadores reales por los marcadores de `wrangler.toml` y sin activar Tellows.
 
 ## Pruebas
 

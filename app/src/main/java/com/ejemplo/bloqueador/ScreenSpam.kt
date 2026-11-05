@@ -106,9 +106,11 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
             Text("Privacidad", style = MaterialTheme.typography.titleSmall)
             Text(
                 "• La lista se descarga completa y se consulta en tu teléfono: el servidor nunca sabe quién te llama.\n" +
-                    "• Al reportar solo se envía el número reportado, el tipo de spam y un identificador anónimo. No se envían tus contactos, llamadas ni mensajes.\n" +
-                    "• La lista comunitaria requiere al menos 3 reportes. Tellows, cuando esté disponible, aporta números de México con puntuación de riesgo de 7 a 9 y al menos 3 comentarios. La lista descargada guarda huellas, no números legibles.\n" +
-                    "• Si un número está mal marcado, en su panel puedes tocar \"No es spam\" y deja de bloquearse en tu teléfono.",
+                    "• Tú eliges cada reporte. Solo se envían el número seleccionado de México, la categoría y un identificador aleatorio de instalación. No se suben tu agenda, historial, mensajes ni números ocultos.\n" +
+                    "• El servidor recibe la IP y conserva huellas de la red y la instalación para limitar abusos. Las huellas no garantizan anonimato.\n" +
+                    "• Reportar bloquea el número en tu teléfono. Para publicarlo se requieren al menos 3 instalaciones y redes distintas; esto reduce abusos, pero no demuestra que sean 3 personas. Los reportes vencen a los 180 días y la copia comunitaria caduca tras 7 días sin actualizar.\n" +
+                    "• Tellows sigue pendiente. Si se activa, sus datos vencen en un máximo de 72 horas.\n" +
+                    "• \"No es spam\" quita tu bloqueo manual, evita el bloqueo por la lista y permite retirar tu reporte. Otras reglas personales pueden seguir aplicándose. Tus contactos solo son excepciones locales.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -119,12 +121,10 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
 @Composable
 internal fun DialogoReporteSpam(
     numero: String,
-    puedeBloquear: Boolean,
-    onReportar: (CategoriaSpam, Boolean) -> Unit,
+    onReportar: (CategoriaSpam) -> Unit,
     onCerrar: () -> Unit
 ) {
-    var categoria by rememberSaveable { mutableStateOf(CategoriaSpam.COBRANZA.name) }
-    var bloquear by rememberSaveable { mutableStateOf(puedeBloquear) }
+    var categoria by rememberSaveable { mutableStateOf(CategoriaSpam.OTRO.name) }
     AlertDialog(
         onDismissRequest = onCerrar,
         title = { Text("Reportar $numero") },
@@ -144,24 +144,13 @@ internal fun DialogoReporteSpam(
                         }
                     }
                 }
-                if (puedeBloquear) {
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .selectable(selected = bloquear, role = Role.Checkbox) { bloquear = !bloquear },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(checked = bloquear, onCheckedChange = null)
-                        Spacer(Modifier.width(Esp.m))
-                        Text("Bloquear también este número")
-                    }
-                }
                 Text(
-                    "Solo se envía el número y el tipo, de forma anónima.",
+                    "Se bloqueará en tu teléfono. Al confirmar envías este número, su categoría y un identificador aleatorio de instalación. El servidor recibe tu IP para limitar abusos. No se envían tu agenda ni historial. Puedes corregirlo con \"No es spam\".",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onReportar(CategoriaSpam.valueOf(categoria), bloquear && puedeBloquear) }) { Text("Reportar") } },
+        confirmButton = { TextButton(onClick = { onReportar(CategoriaSpam.valueOf(categoria)) }) { Text("Reportar y bloquear") } },
         dismissButton = { TextButton(onClick = onCerrar) { Text("Cancelar") } }
     )
 }

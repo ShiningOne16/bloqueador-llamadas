@@ -31,6 +31,16 @@ class SpamRulesTest {
         assertTrue(SpamRules.reportable("+52 55 1234 5678"))
         assertFalse(SpamRules.reportable("123"))
         assertFalse(SpamRules.reportable("BANCO"))
+        assertFalse(SpamRules.reportable("+345512345678"))
+        assertFalse(SpamRules.reportable("+15512345678"))
+    }
+
+    @Test fun missedCallsAndSuspiciousNamesOnlySuggestReview() {
+        assertTrue(SpamRules.sugerirRevision(null, null, true))
+        assertTrue(SpamRules.sugerirRevision("Posible ESTAFA", null, false))
+        assertTrue(SpamRules.sugerirRevision("Ana", "Spam", false))
+        assertFalse(SpamRules.sugerirRevision("Médico", null, true))
+        assertFalse(SpamRules.sugerirRevision(null, null, false))
     }
 
     @Test fun categoryOrderMatchesTheServerIndexes() {

@@ -25,6 +25,7 @@ object SpamRules {
     // Debe coincidir con PEPPER de cloudflare/src/lib.js.
     private const val PEPPER = "bloqueador-spam-v1:"
     const val MAX_LISTA_BYTES = 8 * 1024 * 1024
+    const val VIGENCIA_LISTA_MS = 7 * 24 * 60 * 60 * 1000L
 
     /** Huella de 12 caracteres de los últimos 10 dígitos: la lista no guarda números legibles. */
     fun huella(numero: String): String {
@@ -34,8 +35,14 @@ object SpamRules {
         return digest.joinToString("") { "%02x".format(it) }.take(12)
     }
 
-    /** Un número se puede reportar si parece un teléfono real (7 a 15 dígitos). */
-    fun reportable(numero: String) = PremiumRules.validNumber(numero)
+    /** Esta comunidad cubre México; no mezcla países por sus últimos diez dígitos. */
+    fun reportable(numero: String) = PremiumRules.validNumber(numero) && numeroMexicano(numero)
+
+    /** Solo propone revisar en el teléfono. Nunca decide ni envía un reporte. */
+    fun sugerirRevision(nombre: String?, etiqueta: String?, perdida: Boolean): Boolean {
+        val texto = simplificar(listOfNotNull(nombre, etiqueta).joinToString(" "))
+        return (nombre == null && perdida) || listOf("spam", "estafa", "fraude").any { it in texto }
+    }
 
     /** Tellows México no debe bloquear una llamada extranjera con los mismos últimos 10 dígitos. */
     fun numeroMexicano(numero: String): Boolean {
@@ -68,12 +75,19 @@ object SpamLista {
             val raw = JSONObject(f.readText())
             val array = raw.getJSONArray("n")
             val tellowsHasta = raw.optLong("tellows_hasta", 0L)
-            cacheVence = if (tellowsHasta > ahora) tellowsHasta else Long.MAX_VALUE
+            val generado = raw.optLong("generado", 0L)
+            val comunidadHasta = if (generado > 0) {
+                raw.optLong("comunidad_hasta", generado + SpamRules.VIGENCIA_LISTA_MS)
+                    .coerceAtMost(generado + SpamRules.VIGENCIA_LISTA_MS)
+            } else 0L
+            cacheVence = listOf(tellowsHasta, comunidadHasta).filter { it > ahora }.minOrNull() ?: Long.MAX_VALUE
             val m = HashMap<String, Int>(array.length() * 2)
             val tellows = mutableSetOf<String>()
             for (i in 0 until array.length()) {
                 val e = array.getJSONArray(i)
                 if (e.optString(3) == "tellows" && ahora >= tellowsHasta) continue
+                if (e.optString(3) != "tellows" && ahora >= comunidadHasta) continue
+                if (e.optString(3) != "tellows" && e.optInt(2, 0) < 3) continue
                 m[e.getString(0)] = e.optInt(1, 0)
                 if (e.optString(3) == "tellows") tellows.add(e.getString(0))
             }
@@ -105,6 +119,7 @@ object SpamLista {
     /** Categoría reportada para ese número, o null si no está en la lista. */
     @Synchronized
     fun categoria(context: Context, numero: String): CategoriaSpam? {
+        if (!SpamRules.numeroMexicano(numero)) return null
         val h = SpamRules.huella(numero)
         if (h.isEmpty()) return null
         val entries = mapa(context)
@@ -116,7 +131,7 @@ object SpamLista {
     fun actualizar(context: Context): Boolean {
         val base = SpamComunidad.servidor(context) ?: return false
         return try {
-            val conexion = URL("$base/lista?fuentes=2").openConnection() as HttpURLConnection
+            val conexion = URL("$base/lista?fuentes=3").openConnection() as HttpURLConnection
             conexion.connectTimeout = 15_000
             conexion.readTimeout = 30_000
             conexion.useCaches = false
@@ -161,7 +176,7 @@ class SpamStore(context: Context) {
         get() = prefs.getLong("updated", 0L)
         set(value) { prefs.edit().putLong("updated", value).apply() }
 
-    /** Identificador aleatorio de esta instalación (no ligado al teléfono ni a la cuenta); el servidor solo guarda su huella. */
+    /** Identificador aleatorio de instalación; es seudónimo, no una garantía de anonimato. */
     val instalacion: String
         get() = prefs.getString("installation", null) ?: java.util.UUID.randomUUID().toString().also {
             prefs.edit().putString("installation", it).apply()
@@ -174,14 +189,24 @@ class SpamStore(context: Context) {
         val h = SpamRules.huella(numero)
         if (h.isNotEmpty()) prefs.edit().putStringSet("reported", conjunto("reported") + h).apply()
     }
+    fun retirarReportado(numero: String) {
+        prefs.edit().putStringSet("reported", conjunto("reported") - SpamRules.huella(numero)).apply()
+    }
     val totalReportados: Int get() = conjunto("reported").size
+    fun tieneReporteLocal(numero: String) = SpamRules.huella(numero) in conjunto("local_reports")
+    fun marcarReporteLocal(numero: String) {
+        val h = SpamRules.huella(numero)
+        if (h.isNotEmpty()) prefs.edit().putStringSet("local_reports", conjunto("local_reports") + h).apply()
+    }
 
     /** "No es spam": la lista deja de afectar a ese número en este teléfono. */
     fun permitido(numero: String) = SpamRules.huella(numero).let { it.isNotEmpty() && it in conjunto("allowed") }
     fun permitir(numero: String, permitir: Boolean) {
         val h = SpamRules.huella(numero)
         if (h.isEmpty()) return
-        prefs.edit().putStringSet("allowed", if (permitir) conjunto("allowed") + h else conjunto("allowed") - h).apply()
+        val editor = prefs.edit().putStringSet("allowed", if (permitir) conjunto("allowed") + h else conjunto("allowed") - h)
+        if (permitir) editor.putStringSet("local_reports", conjunto("local_reports") - h)
+        editor.apply()
     }
 }
 
@@ -196,9 +221,21 @@ object SpamComunidad {
     fun configurado(context: Context): Boolean = servidor(context) != null
 
     /** Debe llamarse fuera del hilo principal. Devuelve null si salió bien, o el motivo del fallo. */
-    fun reportar(context: Context, numero: String, categoria: CategoriaSpam): String? {
+    fun errorReporte(context: Context, numero: String): String? {
+        if (!SpamRules.reportable(numero)) return "Solo se pueden reportar números de México de 10 dígitos."
+        return try {
+            val ocultos = HiddenStore(context).contactsForReporting() + SesionEntrada.aOcultar()
+            if (HiddenRules.matchesSender(ocultos, numero)) "Los números ocultos no se envían a la comunidad." else null
+        } catch (_: Exception) { "No se pudo comprobar la privacidad del número. No se enviará." }
+    }
+
+    fun reportar(context: Context, numero: String, categoria: CategoriaSpam,
+        conectar: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }): String? {
+        errorReporte(context, numero)?.let { return it }
+        Prefs(context).setManualBlock(numero, true)
+        SpamStore(context).permitir(numero, false)
+        SpamStore(context).marcarReporteLocal(numero)
         val base = servidor(context) ?: return "Los reportes todavía no están configurados en esta versión."
-        if (!SpamRules.reportable(numero)) return "Este número no se puede reportar."
         val store = SpamStore(context)
         if (store.reportado(numero)) return null
         val fallo = "No se pudo enviar el reporte. Revisa tu conexión e inténtalo de nuevo."
@@ -207,7 +244,7 @@ object SpamComunidad {
                 .put("numero", numero)
                 .put("categoria", categoria.codigo)
                 .put("instalacion", store.instalacion)
-            val conexion = URL("$base/reportar").openConnection() as HttpURLConnection
+            val conexion = conectar(URL("$base/reportar"))
             try {
                 conexion.requestMethod = "POST"
                 conexion.connectTimeout = 15_000
@@ -226,6 +263,35 @@ object SpamComunidad {
         } catch (_: Exception) {
             fallo
         }
+    }
+
+    fun noEsSpamLocal(context: Context, numero: String) {
+        SpamStore(context).permitir(numero, true)
+        Prefs(context).setManualBlock(numero, false)
+    }
+
+    /** Retira solo el voto de esta instalación; "No es spam" ya se aplica localmente aunque falle la red. */
+    fun retirar(context: Context, numero: String,
+        conectar: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }): String? {
+        errorReporte(context, numero)?.let { return it }
+        val store = SpamStore(context)
+        if (!store.reportado(numero)) return null
+        val base = servidor(context) ?: return "El servidor de reportes no está configurado."
+        return try {
+            val conexion = conectar(URL("$base/retirar"))
+            try {
+                conexion.requestMethod = "POST"
+                conexion.connectTimeout = 15_000
+                conexion.readTimeout = 20_000
+                conexion.doOutput = true
+                conexion.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                val cuerpo = JSONObject().put("numero", numero).put("instalacion", store.instalacion)
+                conexion.outputStream.use { it.write(cuerpo.toString().toByteArray(Charsets.UTF_8)) }
+                if (conexion.responseCode != 200) return "No se pudo retirar tu reporte. Puedes reintentarlo."
+                store.retirarReportado(numero)
+                null
+            } finally { conexion.disconnect() }
+        } catch (_: Exception) { "No se pudo retirar tu reporte. Puedes reintentarlo." }
     }
 }
 

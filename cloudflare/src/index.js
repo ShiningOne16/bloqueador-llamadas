@@ -1,6 +1,7 @@
 import {
   CATEGORIAS, UMBRAL_REPORTES, MAX_REPORTES_POR_DIA, RETENCION_DIAS, DIA_MS,
   claveNumero, huella, sha256hex, instalacionValida, categoriaDominante, diaIso,
+  numeroMexicano, VIGENCIA_LISTA_MS,
 } from './lib.js';
 import { loadTellows } from './tellows.js';
 
@@ -18,16 +19,20 @@ async function contar(env, clave, dia) {
   return fila ? fila.n : 1;
 }
 
-async function reportar(request, env) {
+async function reportar(request, env, retirar = false) {
   if (!env.SAL) return responder({ error: 'Servidor sin configurar (falta SAL).' }, 500);
   const texto = await request.text();
   if (texto.length > 2048) return responder({ error: 'Solicitud demasiado grande.' }, 413);
   let cuerpo;
   try { cuerpo = JSON.parse(texto); } catch { return responder({ error: 'JSON no válido.' }, 400); }
+  if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo) ||
+      Object.keys(cuerpo).some((key) => !['numero', 'categoria', 'instalacion'].includes(key))) {
+    return responder({ error: 'Solo se acepta un número seleccionado, categoría e instalación.' }, 400);
+  }
 
   const clave = claveNumero(cuerpo && cuerpo.numero);
-  if (!clave) return responder({ error: 'Número no válido.' }, 400);
-  if (!CATEGORIAS.includes(cuerpo.categoria)) return responder({ error: 'Categoría no válida.' }, 400);
+  if (!clave || !numeroMexicano(cuerpo.numero)) return responder({ error: 'Solo se aceptan números de México.' }, 400);
+  if (!retirar && !CATEGORIAS.includes(cuerpo.categoria)) return responder({ error: 'Categoría no válida.' }, 400);
   if (!instalacionValida(cuerpo.instalacion)) return responder({ error: 'Instalación no válida.' }, 400);
 
   const ip = request.headers.get('CF-Connecting-IP') || 'desconocida';
@@ -36,10 +41,19 @@ async function reportar(request, env) {
   const ahora = Date.now();
   const dia = diaIso(ahora);
 
-  const porIp = await contar(env, `ip:${ipHuella}`, dia);
-  const porInstalacion = await contar(env, `inst:${instHuella}`, dia);
+  const prefijo = retirar ? 'retirar:' : '';
+  const porIp = await contar(env, `${prefijo}ip:${ipHuella}`, dia);
+  const porInstalacion = await contar(env, `${prefijo}inst:${instHuella}`, dia);
   if (porIp > MAX_REPORTES_POR_DIA || porInstalacion > MAX_REPORTES_POR_DIA) {
     return responder({ error: 'Demasiados reportes hoy.' }, 429);
+  }
+
+  if (retirar) {
+    await env.DB.prepare('DELETE FROM reportes WHERE huella = ? AND instalacion = ?')
+      .bind(await huella(clave), instHuella).run();
+    // Recalcula también al reintentar tras un fallo de KV. No modifica votos de otras instalaciones.
+    await publicar(env);
+    return responder({ ok: true });
   }
 
   // OR IGNORE: si esa red o esa instalación ya reportó este número, no cuenta otra vez.
@@ -73,6 +87,7 @@ export async function publicar(env, ahora = Date.now(), fetcher = fetch) {
   const n = [...combined.values()];
   await env.LISTA.put('lista', JSON.stringify({
     v: 1, generado: ahora, min: UMBRAL_REPORTES, n,
+    comunidad_hasta: ahora + VIGENCIA_LISTA_MS,
     tellows_hasta: tellows.hasta, fuentes: { tellows: tellows.fuente },
   }));
 
@@ -88,7 +103,7 @@ export async function manejar(request, env) {
     const valor = await env.LISTA.get('lista');
     let body = valor || LISTA_VACIA;
     // Los clientes antiguos no conocen la caducidad de Tellows: solo reciben comunidad.
-    if (valor && url.searchParams.get('fuentes') !== '2') {
+    if (valor && !['2', '3'].includes(url.searchParams.get('fuentes'))) {
       const lista = JSON.parse(valor);
       lista.n = lista.n.filter((entry) => entry[3] !== 'tellows');
       body = JSON.stringify(lista);
@@ -98,6 +113,7 @@ export async function manejar(request, env) {
     });
   }
   if (pathname === '/reportar' && request.method === 'POST') return reportar(request, env);
+  if (pathname === '/retirar' && request.method === 'POST') return reportar(request, env, true);
   if (pathname === '/') return new Response('Bloqueador: servidor de la lista de spam.');
   return responder({ error: 'No encontrado.' }, 404);
 }

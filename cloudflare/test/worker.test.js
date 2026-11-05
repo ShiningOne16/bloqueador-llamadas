@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { manejar, publicar } from '../src/index.js';
-import { huella, claveNumero, categoriaDominante, UMBRAL_REPORTES, MAX_REPORTES_POR_DIA, DIA_MS } from '../src/lib.js';
+import { huella, claveNumero, categoriaDominante, UMBRAL_REPORTES, MAX_REPORTES_POR_DIA, DIA_MS, VIGENCIA_LISTA_MS } from '../src/lib.js';
 import { convertScorelist, loadTellows, TELLOWS_MAX_AGE } from '../src/tellows.js';
 
 const CSV_HEADER = 'Nummer;Score;Kommentare;Land;Vorwahl;Suchanfragen;Anruftyp';
@@ -275,5 +275,83 @@ test('los reportes vencidos desaparecen de la publicación, no solo de la base',
   for (let i = 0; i < UMBRAL_REPORTES; i++) await reportar(env);
   await publicar(env, Date.now() + 200 * DIA_MS);
   assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+});
+
+function retirar(env, numero, instalacion, ip = '1.2.3.4') {
+  return manejar(new Request('https://x.test/retirar', {
+    method: 'POST', headers: { 'CF-Connecting-IP': ip },
+    body: JSON.stringify({ numero, instalacion }),
+  }), env);
+}
+
+test('rechaza agendas, historiales, lotes y campos adicionales', async () => {
+  const { env, sqlite } = crearEntorno();
+  for (const body of [
+    [{ numero: '5512345678', categoria: 'estafa', instalacion: 'instalacion-1234567890' }],
+    { numero: '5512345678', categoria: 'estafa', instalacion: 'instalacion-1234567890', contactos: [] },
+    { numero: '5512345678', categoria: 'estafa', instalacion: 'instalacion-1234567890', historial: [] },
+    { numero: '5512345678', categoria: 'estafa', instalacion: 'instalacion-1234567890', nombre: 'Ana' },
+  ]) {
+    const response = await manejar(new Request('https://x.test/reportar', { method: 'POST', body: JSON.stringify(body) }), env);
+    assert.strictEqual(response.status, 400);
+  }
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 0);
+});
+
+test('rechaza números extranjeros con el mismo sufijo que uno mexicano', async () => {
+  const { env } = crearEntorno();
+  assert.strictEqual((await reportar(env, { numero: '+345512345678' })).status, 400);
+  assert.strictEqual((await reportar(env, { numero: '+15512345678' })).status, 400);
+  assert.strictEqual((await reportar(env, { numero: '+525512345678' })).status, 200);
+});
+
+test('la publicación indica siete días de vigencia para clientes nuevos', async () => {
+  const { env } = crearEntorno();
+  const now = Date.now();
+  await publicar(env, now);
+  const lista = await (await manejar(new Request('https://x.test/lista?fuentes=3'), env)).json();
+  assert.strictEqual(lista.comunidad_hasta, now + VIGENCIA_LISTA_MS);
+});
+
+test('retirar solo elimina el voto propio y recalcula el umbral comunitario', async () => {
+  const { env, sqlite } = crearEntorno();
+  const id = 'instalacion-propia-1234';
+  await reportar(env, { instalacion: id });
+  await reportar(env);
+  await reportar(env);
+  await publicar(env);
+  assert.strictEqual(JSON.parse(await env.LISTA.get('lista')).n.length, 1);
+  assert.strictEqual((await retirar(env, '5512345678', 'otra-instalacion-123456')).status, 200);
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 3);
+  assert.strictEqual((await retirar(env, '5512345678', id)).status, 200);
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 2);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+  assert.strictEqual((await retirar(env, '5512345678', id)).status, 200);
+});
+
+test('reintentar la retirada repara una publicación fallida y conserva otros votos', async () => {
+  const { env, sqlite } = crearEntorno();
+  const id = 'instalacion-propia-1234';
+  await reportar(env, { instalacion: id });
+  await reportar(env);
+  await reportar(env);
+  await publicar(env);
+  const guardar = env.LISTA.put;
+  env.LISTA.put = async () => { throw new Error('Fallo de KV'); };
+  await assert.rejects(retirar(env, '5512345678', id));
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 2);
+  env.LISTA.put = guardar;
+  await retirar(env, '5512345678', id);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+});
+
+test('retirar no elimina reportes de otros números ni borra los límites diarios', async () => {
+  const { env, sqlite } = crearEntorno();
+  const id = 'instalacion-propia-1234';
+  await reportar(env, { instalacion: id });
+  await reportar(env, { instalacion: id, numero: '5598765432' });
+  await retirar(env, '5512345678', id);
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 1);
+  assert.strictEqual(sqlite.prepare("SELECT SUM(n) n FROM limites WHERE clave LIKE 'inst:%'").get().n, 2);
 });
 
