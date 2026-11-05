@@ -13,8 +13,8 @@ android {
         // Android 10+: necesario para el rol de "filtrado de llamadas" (RoleManager)
         minSdk = 29
         targetSdk = 35
-        versionCode = 15
-        versionName = "2.1.0"
+        versionCode = 16
+        versionName = "2.1.1"
     }
 
     // Llave fija para que cada versión nueva se instale encima de la anterior.
@@ -79,4 +79,5 @@ dependencies {
     // Anuncios (AdMob) y mensaje de consentimiento (UMP, incluido en este SDK)
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
+
 
