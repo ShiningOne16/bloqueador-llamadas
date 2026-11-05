@@ -119,7 +119,9 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   almacén seguro de Android; tras 5 intentos fallidos hay un bloqueo temporal que va creciendo, y la pantalla
   no permite capturas. **Olvidé mi PIN** borra para siempre todos los contactos ocultos: su contacto de la
   agenda (también en Google), su registro de llamadas y sus SMS (estos solo si Bloqueador es la app
-  predeterminada). Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
+  predeterminada). El PIN y la lista privada solo se eliminan después de comprobar que no quedan contactos,
+  llamadas ni SMS por borrar. Si faltan permisos o falla un borrado, la protección se conserva y puedes
+  volver a intentarlo; los datos que ya se borraron no se recuperan. Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
   y sus llamadas anteriores.
 - **Lista de spam de la comunidad:** la app descarga una vez al día una lista de números que al menos 3 personas
   distintas reportaron como spam (cobranza, ventas, estafa, encuesta) y, si lo activas, rechaza esas llamadas y las
@@ -244,4 +246,5 @@ y selección.
 - Android no deja que una app que no es la de mensajes predeterminada bloquee SMS; por eso aquí se silencian
   (el mensaje queda en tu app de SMS, sin avisar).
 - Algunas marcas (Xiaomi, Huawei, etc.) pueden pedir que desactives el ahorro de batería para la app.
+
 

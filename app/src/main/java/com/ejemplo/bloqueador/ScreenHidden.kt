@@ -77,13 +77,18 @@ fun PantallaOcultos(onCerrar: () -> Unit, onChanged: () -> Unit) {
             val resultado = withContext(Dispatchers.IO) { HiddenWipe.run(context) }
             trabajando = false
             informe = resultado
-            hayPin = false
+            hayPin = store.hasPin()
             desbloqueado = false
             onChanged()
         }
     }
-    // El permiso para escribir en el registro de llamadas se pide justo antes de borrar.
-    val pedirRegistro = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { borrarTodo() }
+    // Sin lectura y escritura no se puede verificar un restablecimiento seguro.
+    val permisosBorrado = arrayOf(
+        Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS,
+        Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG,
+        Manifest.permission.READ_SMS
+    )
+    val pedirRegistro = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { borrarTodo() }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -115,8 +120,8 @@ fun PantallaOcultos(onCerrar: () -> Unit, onChanged: () -> Unit) {
         DialogoReinicio(
             onConfirmar = {
                 confirmandoReinicio = false
-                if (PhoneData.has(context, Manifest.permission.WRITE_CALL_LOG)) borrarTodo()
-                else pedirRegistro.launch(Manifest.permission.WRITE_CALL_LOG)
+                if (permisosBorrado.all { PhoneData.has(context, it) }) borrarTodo()
+                else pedirRegistro.launch(permisosBorrado)
             },
             onCancelar = { confirmandoReinicio = false }
         )
@@ -504,25 +509,18 @@ private fun DialogoReinicio(onConfirmar: () -> Unit, onCancelar: () -> Unit) {
 private fun DialogoInforme(r: WipeReport, onCerrar: () -> Unit) {
     AlertDialog(
         onDismissRequest = onCerrar,
-        title = { Text(if (r.complete) "Todo se borró" else "Se borró lo que fue posible") },
+        title = { Text(if (r.complete) "Todo se borró" else "Restablecimiento pendiente") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                Text("Contactos borrados: ${r.contactsDeleted} de ${r.contactsTotal}")
-                Text("Llamadas borradas: ${r.callsDeleted} de ${r.callsTotal}")
-                Text("Conversaciones de SMS borradas: ${if (r.smsSkipped) "ninguna" else r.smsThreadsTotal.toString()}")
-                if (r.contactsDeleted < r.contactsTotal) {
-                    Text("Algunos contactos no se pudieron borrar. Revisa el permiso de contactos o bórralos desde tu agenda.",
-                        color = MaterialTheme.colorScheme.error)
+                if (r.complete) {
+                    Text("Contactos borrados: ${r.contactsDeleted}")
+                    Text("Llamadas borradas: ${r.callsDeleted}")
+                    Text("SMS borrados: ${r.smsMessagesDeleted}")
+                    Text("La función quedó sin PIN y sin contactos ocultos.")
+                } else {
+                    Text(r.failure ?: "No se pudo completar el borrado.", color = MaterialTheme.colorScheme.error)
+                    Text("El PIN y la lista privada se conservan. Algunos datos pueden haberse borrado ya; los restantes siguen ocultos. Usa \"Olvidé mi PIN\" para volver a intentarlo.")
                 }
-                if (r.callsDeleted < r.callsTotal) {
-                    Text("Faltó permiso para borrar el registro de llamadas. Bórralas desde la app Teléfono.",
-                        color = MaterialTheme.colorScheme.error)
-                }
-                if (r.smsSkipped) {
-                    Text("Los SMS no se pudieron borrar porque Bloqueador no es tu app de SMS predeterminada. Bórralos desde tu app de mensajes.",
-                        color = MaterialTheme.colorScheme.error)
-                }
-                Text("La función quedó sin PIN y sin contactos ocultos.")
             }
         },
         confirmButton = { TextButton(onClick = onCerrar) { Text("Entendido") } }

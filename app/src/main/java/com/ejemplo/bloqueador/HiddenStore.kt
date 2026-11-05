@@ -1,6 +1,5 @@
 package com.ejemplo.bloqueador
 
-import android.Manifest
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -122,9 +121,16 @@ class HiddenStore(context: Context) {
 
     // ---------------- Contactos ocultos ----------------
 
-    fun contacts(): List<HiddenContact> {
+    fun contacts(): List<HiddenContact> = readContacts(strict = false)
+
+    /** Un reinicio no puede interpretar un error de descifrado como una lista vacía. */
+    internal fun contactsForWipe(): List<HiddenContact> = readContacts(strict = true)
+
+    private fun readContacts(strict: Boolean): List<HiddenContact> {
         val blob = prefs.getString("data", null) ?: return emptyList()
-        val raw = crypto.decrypt(blob) ?: return emptyList()
+        val raw = crypto.decrypt(blob) ?: if (strict) {
+            error("No se pudo leer la lista privada. Se conserva su protección.")
+        } else return emptyList()
         return try {
             val array = JSONArray(raw)
             (0 until array.length()).map { i ->
@@ -137,7 +143,8 @@ class HiddenStore(context: Context) {
                     lookupKey = o.optString("lookup")
                 )
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            if (strict) throw IllegalStateException("No se pudo leer la lista privada.", e)
             emptyList()
         }
     }
@@ -177,67 +184,23 @@ class HiddenStore(context: Context) {
 
     /** Borra el PIN, el bloqueo, la lista y la llave de cifrado. No toca la agenda ni los registros. */
     fun wipe() {
-        prefs.edit().clear().commit()
-        crypto.deleteKey()
-    }
-}
-
-data class WipeReport(
-    val contactsTotal: Int,
-    val contactsDeleted: Int,
-    val callsTotal: Int,
-    val callsDeleted: Int,
-    val smsThreadsTotal: Int,
-    val smsMessagesDeleted: Int,
-    /** No se pudieron borrar los SMS: Bloqueador no es la app de SMS predeterminada. */
-    val smsSkipped: Boolean
-) {
-    val complete get() = contactsDeleted >= contactsTotal && callsDeleted >= callsTotal && !smsSkipped
-}
-
-/** "Olvidé mi PIN": borra los contactos ocultos, sus llamadas y SMS, y deja la función sin PIN. */
-object HiddenWipe {
-    fun run(context: Context): WipeReport {
-        val store = HiddenStore(context)
-        val hidden = store.contacts()
-        val keys = HiddenRules.keys(hidden)
-
-        val deletable = hidden.filter { it.contactId > 0 && it.lookupKey.isNotEmpty() }
-        var contactsDeleted = 0
-        if (PhoneData.has(context, Manifest.permission.WRITE_CONTACTS)) {
-            deletable.forEach { c ->
-                val entry = ContactEntry(c.contactId, c.lookupKey, c.name, c.numbers, false)
-                if (ContactStore.eliminar(context, entry) is ContactStore.Resultado.Ok) contactsDeleted++
-            }
-        }
-
-        val calls = PhoneData.loadCalls(context, limit = 10_000, includeHidden = true)
-            .filter { HiddenRules.isHiddenNumber(keys, it.number) }
-        var callsDeleted = 0
-        if (calls.isNotEmpty() && PhoneData.has(context, Manifest.permission.WRITE_CALL_LOG)) {
-            callsDeleted = try { PhoneData.deleteCalls(context, calls) } catch (_: Exception) { 0 }
-        }
-
-        val threads = PhoneData.loadThreads(context, emptyMap(), maxRows = 20_000, includeHidden = true)
-            .filter { HiddenRules.isHiddenNumber(keys, it.address) }
-        var smsDeleted = 0
-        var smsSkipped = false
-        if (threads.isNotEmpty()) {
-            if (SmsRepository.isDefault(context)) {
-                smsDeleted = try {
-                    SmsRepository.deleteThreads(context, threads.map { SmsDeletionTarget(it.threadId, it.last.id, it.last.date) })
-                } catch (_: Exception) {
-                    smsSkipped = true
-                    0
+        val previous = prefs.all
+        if (!prefs.edit().clear().commit()) {
+            // commit() también modifica la copia en memoria aunque falle la escritura a disco.
+            // Restaurarla impide mostrar la sección sin PIN mientras se reintenta.
+            val restore = prefs.edit().clear()
+            previous.forEach { (key, value) ->
+                when (value) {
+                    is String -> restore.putString(key, value)
+                    is Int -> restore.putInt(key, value)
+                    is Long -> restore.putLong(key, value)
+                    is Boolean -> restore.putBoolean(key, value)
+                    is Float -> restore.putFloat(key, value)
                 }
-            } else {
-                smsSkipped = true
             }
+            restore.commit()
+            error("No se pudo guardar el restablecimiento. Vuelve a intentarlo.")
         }
-
-        NoteStore(context).removeKeys(keys)
-        AsistenteStore(context).borrarClaves(keys)
-        store.wipe()
-        return WipeReport(deletable.size, contactsDeleted, calls.size, callsDeleted, threads.size, smsDeleted, smsSkipped)
+        crypto.deleteKey()
     }
 }
