@@ -2,6 +2,7 @@ package com.ejemplo.bloqueador
 
 import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,10 +22,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +63,9 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var viendoTemporal by rememberSaveable { mutableStateOf(false) }
     var viendoSpam by rememberSaveable { mutableStateOf(false) }
     var viendoEntrada by rememberSaveable { mutableStateOf(false) }
+    // Una sola función abierta a la vez en la lista.
+    var funcionAbierta by rememberSaveable { mutableStateOf<String?>(null) }
+    fun alternar(id: String) { funcionAbierta = if (funcionAbierta == id) null else id }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -114,47 +123,55 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
             contentPadding = PaddingValues(horizontal = Esp.l, vertical = Esp.s),
             verticalArrangement = Arrangement.spacedBy(Esp.m)
         ) {
-            item { PremiumHero() }
+            item { PremiumBanner() }
             item {
-                Tarjeta {
-                    FilaAccion(
-                        Icons.Filled.VisibilityOff,
-                        "Contactos ocultos",
-                        "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos."
-                    ) { viendoOcultos = true }
-                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
-                    // Con un NIP incorrecto esta fila no se muestra: así no se nota que la función existe.
-                    if (SesionEntrada.modo != ModoEntrada.FALSO) {
-                        FilaAccion(
-                            Icons.Filled.Lock,
-                            "NIP de entrada",
-                            "Pide un NIP al abrir la app. Con un NIP incorrecto se ocultan los contactos que elijas."
-                        ) { viendoEntrada = true }
-                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
+                    Text(
+                        "Funciones",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = Esp.xs)
+                    )
+                    Tarjeta {
+                        FilaFuncion(
+                            Icons.Filled.VisibilityOff, "Contactos ocultos",
+                            "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos.",
+                            abierta = funcionAbierta == "ocultos", onAlternar = { alternar("ocultos") }, onAbrir = { viendoOcultos = true }
+                        )
+                        DivisorFuncion()
+                        // Con un NIP incorrecto esta fila no se muestra: así no se nota que la función existe.
+                        if (SesionEntrada.modo != ModoEntrada.FALSO) {
+                            FilaFuncion(
+                                Icons.Filled.Lock, "NIP de entrada",
+                                "Pide un NIP al abrir la app. Con un NIP incorrecto se ocultan los contactos que elijas.",
+                                abierta = funcionAbierta == "entrada", onAlternar = { alternar("entrada") }, onAbrir = { viendoEntrada = true }
+                            )
+                            DivisorFuncion()
+                        }
+                        FilaFuncion(
+                            Icons.Filled.Bookmark, "Notas de números",
+                            "Ponle una etiqueta o nota a cualquier número para reconocerlo cuando llame.",
+                            abierta = funcionAbierta == "notas", onAlternar = { alternar("notas") }, onAbrir = { viendoNotas = true }
+                        )
+                        DivisorFuncion()
+                        FilaFuncion(
+                            Icons.Filled.SupportAgent, "Asistente de llamadas",
+                            "Silencia a los desconocidos y les pide por SMS que se identifiquen. Tú decides si responder.",
+                            abierta = funcionAbierta == "asistente", onAlternar = { alternar("asistente") }, onAbrir = { viendoAsistente = true }
+                        )
+                        DivisorFuncion()
+                        FilaFuncion(
+                            Icons.Filled.Timer, "Concentración y permisos",
+                            "Rechaza todas las llamadas por un rato, o deja pasar a un número o a los desconocidos por un tiempo.",
+                            abierta = funcionAbierta == "temporal", onAlternar = { alternar("temporal") }, onAbrir = { viendoTemporal = true }
+                        )
+                        DivisorFuncion()
+                        FilaFuncion(
+                            Icons.Filled.Report, "Lista de spam",
+                            "Bloquea los números que la comunidad reporta como spam y reporta los tuyos.",
+                            abierta = funcionAbierta == "spam", onAlternar = { alternar("spam") }, onAbrir = { viendoSpam = true }
+                        )
                     }
-                    FilaAccion(
-                        Icons.Filled.Bookmark,
-                        "Notas de números",
-                        "Ponle una etiqueta o nota a cualquier número para reconocerlo cuando llame."
-                    ) { viendoNotas = true }
-                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
-                    FilaAccion(
-                        Icons.Filled.SupportAgent,
-                        "Asistente de llamadas",
-                        "Silencia a los desconocidos y les pide por SMS que se identifiquen. Tú decides si responder."
-                    ) { viendoAsistente = true }
-                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
-                    FilaAccion(
-                        Icons.Filled.Timer,
-                        "Concentración y permisos",
-                        "Rechaza todas las llamadas por un rato, o deja pasar a un número o a los desconocidos por un tiempo."
-                    ) { viendoTemporal = true }
-                    HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
-                    FilaAccion(
-                        Icons.Filled.Report,
-                        "Lista de spam",
-                        "Bloquea los números que la comunidad reporta como spam y reporta los tuyos."
-                    ) { viendoSpam = true }
                 }
             }
             item {
@@ -476,29 +493,76 @@ private fun ExceptionDialog(existing: List<NumberException>, onClose: () -> Unit
     )
 }
 
-/** Tarjeta de bienvenida: degradado azul noche con la marca como acento. Texto claro (≥ 5.7:1). */
+/** Banner compacto: lo esencial en pocas líneas; cada función se explica al abrirla en la lista. */
 @Composable
-private fun PremiumHero() {
+private fun PremiumBanner() {
     val extra = LocalColoresExtra.current
-    val degradado = Brush.linearGradient(listOf(Color(0xFF0F1319), Color(0xFF17407A)))
-    val texto = Color(0xFFE7E9EA)
-    val suave = Color(0xFFB6C2CF)
-    Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(degradado).padding(Esp.xl)) {
-        Column(verticalArrangement = Arrangement.spacedBy(Esp.m)) {
-            IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 48.dp)
-            Text("Más control, a tu manera", style = MaterialTheme.typography.headlineSmall, color = texto)
-            Column(verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-                listOf("Horarios", "Excepciones", "Perfiles", "Contactos ocultos", "Notas de números", "Asistente de llamadas", "Concentración y permisos", "Lista de spam").forEach { beneficio ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
-                        Icon(Icons.Filled.Check, contentDescription = null, tint = extra.marca, modifier = Modifier.size(18.dp))
-                        Text(beneficio, style = MaterialTheme.typography.bodyLarge, color = texto)
-                    }
-                }
-            }
+    val colores = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(colores.primaryContainer).padding(Esp.l),
+        horizontalArrangement = Arrangement.spacedBy(Esp.m),
+        verticalAlignment = Alignment.Top
+    ) {
+        IconoCirculo(Icons.Filled.WorkspacePremium, fondo = extra.marca, color = extra.onMarca, tamano = 44.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(Esp.xs)) {
+            Text("Más control, a tu manera", style = MaterialTheme.typography.titleLarge, color = colores.onPrimaryContainer)
             Text(
-                "Vista previa gratuita. La suscripción mensual todavía no está disponible y no se realizan cobros.",
-                style = MaterialTheme.typography.bodyMedium, color = suave
+                "Vista previa gratuita: la suscripción mensual aún no está disponible y no se hace ningún cobro.",
+                style = MaterialTheme.typography.bodyMedium, color = colores.onPrimaryContainer
             )
+        }
+    }
+}
+
+/** Línea que separa funciones; empieza donde empieza el texto, no el ícono. */
+@Composable
+private fun DivisorFuncion() {
+    HorizontalDivider(Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/**
+ * Fila colapsable: cerrada solo muestra ícono y nombre; al tocarla muestra qué hace la función y un botón
+ * para abrirla. Toda la fila es el área táctil (≥ 64 dp), no solo la flecha.
+ */
+@Composable
+private fun FilaFuncion(
+    icono: ImageVector,
+    titulo: String,
+    detalle: String,
+    abierta: Boolean,
+    onAlternar: () -> Unit,
+    onAbrir: () -> Unit
+) {
+    val giro by animateFloatAsState(if (abierta) 180f else 0f, label = "giroFlecha")
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                .clickable(role = Role.Button, onClickLabel = if (abierta) "Ocultar detalle" else "Ver detalle", onClick = onAlternar)
+                .semantics { stateDescription = if (abierta) "Expandido" else "Contraído" }
+                .padding(horizontal = Esp.l, vertical = Esp.s),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Esp.l)
+        ) {
+            Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(titulo, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Box(
+                Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.KeyboardArrowDown, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.rotate(giro)
+                )
+            }
+        }
+        if (abierta) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = 56.dp, end = Esp.l, bottom = Esp.m),
+                verticalArrangement = Arrangement.spacedBy(Esp.m)
+            ) {
+                Text(detalle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FilledTonalButton(onClick = onAbrir, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abrir") }
+            }
         }
     }
 }
