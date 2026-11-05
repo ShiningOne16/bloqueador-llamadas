@@ -187,6 +187,11 @@ reales y notificaciones SMS en un dispositivo con el rol de filtrado y los permi
    (tendrás que permitir "instalar apps de origen desconocido").
 
 ## Primer uso
+
+Si falta elegir Bloqueador, Recientes muestra un aviso breve para establecerla como app de filtrado
+de llamadas y Mensajes muestra otro para SMS, con icono de alerta y flecha. Desaparecen al elegirla.
+El rol de filtrado permite bloquear llamadas; no sustituye la pantalla de llamadas del teléfono.
+
 1. Abre la app.
 2. Pulsa **Activar filtrado** y elige *Bloqueador* como app de filtrado de llamadas / spam.
 3. Acepta los permisos que pide al abrir (contactos, registro de llamadas, teléfono y SMS).
