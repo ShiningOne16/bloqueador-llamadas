@@ -15,7 +15,9 @@ otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y
 - **Contactos:** tu agenda con búsqueda en píldora (sin importar acentos), favoritos, filtro por origen, botón **+** para crear y los mismos gestos de deslizar para llamar o mandar SMS. Crea, edita y elimina contactos dentro de la app, eligiendo dónde guardarlos: **Google** (respaldo en la nube), **SIM** (solo nombre y un número) o **solo el teléfono**.
 - **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
-- **Mensajes:** SMS por conversación, redacción y respuestas dentro de Bloqueador, borradores, elección de SIM,
+- **Mensajes:** buscador en píldora como el de Contactos, por nombre, número o contenido de SMS (también antiguos,
+  sin importar acentos), dentro del filtro elegido. La búsqueda se realiza en el teléfono y excluye contactos ocultos.
+  SMS por conversación, redacción y respuestas dentro de Bloqueador, borradores, elección de SIM,
   estado de envío y filtros. Si eliges Bloqueador como app predeterminada, recibe, guarda y elimina SMS.
   **Multimedia recibida** permite descargar y abrir el texto y los adjuntos de MMS.
 - **Protección:** te dice en una frase si estás protegido, los pasos que faltan, los ajustes y la actividad.

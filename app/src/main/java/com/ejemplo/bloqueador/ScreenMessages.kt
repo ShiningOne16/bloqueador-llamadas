@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @Composable
 fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpenRequest?, onRequestConsumed: () -> Unit) {
@@ -46,6 +48,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
     val archiveStore = remember { ArchiveStore(context) }
     var archive by remember(refreshKey) { mutableStateOf(archiveStore.read()) }
     var filtro by rememberSaveable { mutableIntStateOf(0) }
+    var busqueda by rememberSaveable { mutableStateOf("") }
     var recarga by remember { mutableIntStateOf(0) }
     var deleteThread by remember { mutableStateOf<SmsThread?>(null) }
     var abiertoId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -88,6 +91,23 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             } catch (e: CancellationException) { throw e
             } catch (_: Exception) { loadError = true; hilos = emptyList() }
         }
+    }
+    val consulta = busqueda.trim()
+    var resultados by remember { mutableStateOf<Pair<String, Set<Long>>?>(null) }
+    var searchError by remember { mutableStateOf(false) }
+    LaunchedEffect(consulta, hilos, tienePermiso, changes, recarga) {
+        resultados = null
+        searchError = false
+        val lista = hilos ?: return@LaunchedEffect
+        if (!tienePermiso || consulta.isBlank()) return@LaunchedEffect
+        delay(300)
+        try {
+            val coincidencias = withContext(Dispatchers.IO) {
+                PhoneData.searchSmsThreads(context, consulta, lista.map { it.threadId }.toSet())
+            }
+            resultados = consulta to coincidencias
+        } catch (e: CancellationException) { throw e
+        } catch (_: Exception) { searchError = true }
     }
     fun toggleThread(thread: SmsThread) {
         selectedThreads = if (selectedThreads.any { it.threadId == thread.threadId }) selectedThreads.filterNot { it.threadId == thread.threadId }
@@ -166,6 +186,8 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
     BackHandler(enabled = selectionMode && !busy) { selectedThreads = emptyList() }
     val visibleThreads = hilos.orEmpty().filter { (it.archiveKey() in archive.sms) == (filtro == 3) }
         .filter { when (filtro) { 1 -> it.unread > 0; 2 -> it.name == null; else -> true } }
+        .filter { consulta.isBlank() || SmsSearch.matchesSender(it.name, it.address, consulta) ||
+            (resultados?.takeIf { result -> result.first == consulta }?.second?.contains(it.threadId) == true) }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -190,19 +212,26 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 return@Column
             }
 
-            if (!selectionMode) Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
+            if (!selectionMode) {
+                Buscador(busqueda, { busqueda = it }, "Buscar nombre, número o mensaje")
+                Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
+            }
             if (filtro == 3) Text("Archivo local. Un SMS nuevo devuelve la conversación a la bandeja.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(Esp.s))
 
             val lista = hilos
-            if (loadError) {
+            if (searchError && consulta.isNotBlank()) {
+                EstadoVacio(Icons.Filled.SearchOff, "No se pudo buscar", "Inténtalo de nuevo.", accion = "Reintentar", onAccion = { recarga++ })
+            } else if (loadError) {
                 EstadoVacio(Icons.Filled.Sms, "No se pudieron cargar los mensajes", "Revisa el permiso de SMS e inténtalo de nuevo.", accion = "Reintentar", onAccion = { recarga++ })
-            } else if (lista == null) {
+            } else if (lista == null || (consulta.isNotBlank() && resultados?.first != consulta)) {
                 Cargando()
             } else {
                 val visibles = visibleThreads
                 if (visibles.isEmpty()) {
-                    when (filtro) {
+                    if (consulta.isNotBlank()) {
+                        EstadoVacio(Icons.Filled.SearchOff, "Sin resultados", "No hay mensajes que coincidan con \"$consulta\" en este filtro.")
+                    } else when (filtro) {
                         1 -> EstadoVacio(Icons.Filled.MarkEmailRead, "Todo leído", "No tienes mensajes pendientes.")
                         2 -> EstadoVacio(Icons.Filled.Sms, "Sin desconocidos", "Ningún número desconocido te ha escrito.")
                         3 -> EstadoVacio(Icons.Filled.Sms, "Sin conversaciones archivadas", "Usa el menú ⋮ de una conversación para archivarla.")
@@ -220,7 +249,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 }
             }
             // Banner fijo abajo, solo en la lista (no dentro de una conversación).
-            if (!selectionMode) AnuncioBanner()
+            if (!selectionMode && consulta.isBlank()) AnuncioBanner()
         }
 
         if (tienePermiso && !selectionMode) {
@@ -231,7 +260,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 containerColor = LocalColoresExtra.current.marca,
                 contentColor = LocalColoresExtra.current.onMarca,
                 modifier = Modifier.align(Alignment.BottomEnd)
-                    .padding(start = Esp.l, end = Esp.l, top = Esp.l, bottom = if (Anuncios.activos && Anuncios.listo.value) 80.dp else Esp.l)
+                    .padding(start = Esp.l, end = Esp.l, top = Esp.l, bottom = if (consulta.isBlank() && Anuncios.activos && Anuncios.listo.value) 80.dp else Esp.l)
             )
         }
     }

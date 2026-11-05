@@ -8,6 +8,8 @@ import android.net.Uri
 import android.provider.CallLog
 import android.provider.ContactsContract
 import android.provider.Telephony
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 data class CallEntry(
     val id: Long,
@@ -255,6 +257,31 @@ object PhoneData {
             }
         }
         return threads.values.toList()
+    }
+
+    /** Busca también en SMS antiguos, sin cargar sus textos en la interfaz. */
+    suspend fun searchSmsThreads(context: Context, query: String, threadIds: Set<Long>): Set<Long> {
+        if (query.isBlank() || threadIds.isEmpty()) return emptySet()
+        check(has(context, Manifest.permission.READ_SMS)) { "Falta el permiso de SMS" }
+        val matches = mutableSetOf<Long>()
+        val ocultos = VistaOculta.claves(context)
+        val coroutineContext = currentCoroutineContext()
+        val cursor = context.contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            arrayOf(Telephony.Sms.THREAD_ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY),
+            "${Telephony.Sms.THREAD_ID} IN (${threadIds.joinToString(",")})", null, null
+        ) ?: error("No se pudieron consultar los SMS")
+        cursor.use { c ->
+            while (c.moveToNext()) {
+                coroutineContext.ensureActive()
+                val threadId = c.getLong(0)
+                if (threadId in matches) continue
+                val address = c.getString(1).orEmpty()
+                if (ocultos.isNotEmpty() && HiddenRules.isHiddenNumber(ocultos, address)) continue
+                if (SmsSearch.matchesText(c.getString(2).orEmpty(), query)) matches += threadId
+            }
+        }
+        return matches
     }
 
     fun loadConversation(context: Context, threadId: Long, limit: Int = 500): List<SmsMsg> {
