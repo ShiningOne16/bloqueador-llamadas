@@ -5,4 +5,5 @@ local.properties
 .idea/
 *.iml
 node_modules/
-firebase/functions/package-lock.json
+.wrangler/
+cloudflare/package-lock.json

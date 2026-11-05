@@ -126,8 +126,8 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   marca como "Spam: tipo" en Recientes. Nunca bloquea contactos, excepciones de permitir ni números marcados
   "No es spam". Desde el panel de una llamada se puede reportar un número (se envía solo el número, el tipo y un
   identificador anónimo). La consulta se hace en tu teléfono: el servidor no sabe quién te llama. El servidor es
-  Firebase; las instrucciones para montarlo están en `firebase/README.md`. Sin `app/google-services.json` la app
-  compila igual y la función aparece como "sin servidor".
+  un Worker de Cloudflare (plan gratis); las instrucciones para montarlo están en `cloudflare/README.md`. Mientras
+  `spam_server_url` en `app/src/main/res/values/servidor.xml` esté vacío, la función aparece como "sin servidor".
 - **Concentración y permisos temporales:** el **modo concentración** rechaza todas las llamadas (también las de tus
   contactos y aunque Protección esté en pausa) durante 1, 2 o 4 horas y se apaga solo; una franja en Recientes te
   recuerda que está activo y trae el botón Terminar. Un **permiso temporal** deja pasar a un número concreto, o a todos

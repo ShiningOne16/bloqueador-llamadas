@@ -1,17 +1,13 @@
 package com.ejemplo.bloqueador
 
 import android.content.Context
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.FirebaseApp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.functions.FirebaseFunctions
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-/** Tipos de spam que se pueden reportar. El orden debe coincidir con CATEGORIAS de firebase/functions/lib.js. */
+/** Tipos de spam que se pueden reportar. El orden debe coincidir con CATEGORIAS de cloudflare/src/lib.js. */
 enum class CategoriaSpam(val codigo: String, val etiqueta: String) {
     OTRO("otro", "Otro"),
     COBRANZA("cobranza", "Cobranza"),
@@ -26,7 +22,7 @@ enum class CategoriaSpam(val codigo: String, val etiqueta: String) {
 
 /** Sin dependencias de Android: se prueba con valores concretos. */
 object SpamRules {
-    // Debe coincidir con PEPPER de firebase/functions/lib.js.
+    // Debe coincidir con PEPPER de cloudflare/src/lib.js.
     private const val PEPPER = "bloqueador-spam-v1:"
     const val MAX_LISTA_BYTES = 8 * 1024 * 1024
 
@@ -84,11 +80,9 @@ object SpamLista {
 
     /** Descarga la lista pública. Devuelve false si no hay red, no hay servidor configurado o el archivo no sirve. */
     fun actualizar(context: Context): Boolean {
-        val bucket = try { FirebaseApp.getInstance().options.storageBucket } catch (_: Exception) { null }
-        if (bucket.isNullOrBlank()) return false
+        val base = SpamComunidad.servidor(context) ?: return false
         return try {
-            val url = URL("https://firebasestorage.googleapis.com/v0/b/$bucket/o/spam_list.json?alt=media")
-            val conexion = url.openConnection() as HttpURLConnection
+            val conexion = URL("$base/lista").openConnection() as HttpURLConnection
             conexion.connectTimeout = 15_000
             conexion.readTimeout = 30_000
             conexion.useCaches = false
@@ -133,6 +127,12 @@ class SpamStore(context: Context) {
         get() = prefs.getLong("updated", 0L)
         set(value) { prefs.edit().putLong("updated", value).apply() }
 
+    /** Identificador aleatorio de esta instalación (no ligado al teléfono ni a la cuenta); el servidor solo guarda su huella. */
+    val instalacion: String
+        get() = prefs.getString("installation", null) ?: java.util.UUID.randomUUID().toString().also {
+            prefs.edit().putString("installation", it).apply()
+        }
+
     private fun conjunto(nombre: String): Set<String> = prefs.getStringSet(nombre, emptySet()).orEmpty().toSet()
 
     fun reportado(numero: String) = SpamRules.huella(numero).let { it.isNotEmpty() && it in conjunto("reported") }
@@ -151,27 +151,46 @@ class SpamStore(context: Context) {
     }
 }
 
-/** Reportes a la comunidad (Firebase). Sin google-services.json no hay servidor y todo queda como "sin configurar". */
+/** Reportes a la comunidad (Cloudflare Worker). Sin dirección en servidor.xml todo queda como "sin configurar". */
 object SpamComunidad {
-    fun configurado(context: Context): Boolean = FirebaseApp.getApps(context.applicationContext).isNotEmpty()
+    /** Dirección https del Worker sin diagonal final, o null si no se ha configurado. */
+    fun servidor(context: Context): String? {
+        val url = context.applicationContext.getString(R.string.spam_server_url).trim().trimEnd('/')
+        return url.takeIf { it.startsWith("https://") }
+    }
+
+    fun configurado(context: Context): Boolean = servidor(context) != null
 
     /** Debe llamarse fuera del hilo principal. Devuelve null si salió bien, o el motivo del fallo. */
     fun reportar(context: Context, numero: String, categoria: CategoriaSpam): String? {
-        if (!configurado(context)) return "Los reportes todavía no están configurados en esta versión."
+        val base = servidor(context) ?: return "Los reportes todavía no están configurados en esta versión."
         if (!SpamRules.reportable(numero)) return "Este número no se puede reportar."
         val store = SpamStore(context)
         if (store.reportado(numero)) return null
+        val fallo = "No se pudo enviar el reporte. Revisa tu conexión e inténtalo de nuevo."
         return try {
-            val auth = FirebaseAuth.getInstance()
-            if (auth.currentUser == null) Tasks.await(auth.signInAnonymously())
-            Tasks.await(
-                FirebaseFunctions.getInstance().getHttpsCallable("reportar")
-                    .call(mapOf("numero" to numero, "categoria" to categoria.codigo))
-            )
-            store.marcarReportado(numero)
-            null
-        } catch (e: Exception) {
-            "No se pudo enviar el reporte. Revisa tu conexión e inténtalo de nuevo."
+            val cuerpo = JSONObject()
+                .put("numero", numero)
+                .put("categoria", categoria.codigo)
+                .put("instalacion", store.instalacion)
+            val conexion = URL("$base/reportar").openConnection() as HttpURLConnection
+            try {
+                conexion.requestMethod = "POST"
+                conexion.connectTimeout = 15_000
+                conexion.readTimeout = 20_000
+                conexion.doOutput = true
+                conexion.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                conexion.outputStream.use { it.write(cuerpo.toString().toByteArray(Charsets.UTF_8)) }
+                when (conexion.responseCode) {
+                    200 -> { store.marcarReportado(numero); null }
+                    429 -> "Hoy ya enviaste muchos reportes. Inténtalo mañana."
+                    else -> fallo
+                }
+            } finally {
+                conexion.disconnect()
+            }
+        } catch (_: Exception) {
+            fallo
         }
     }
 }

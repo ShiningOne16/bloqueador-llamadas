@@ -7,7 +7,7 @@ import org.junit.Test
 
 class SpamRulesTest {
     @Test fun hashMatchesTheServer() {
-        // Mismo valor que firebase/functions/lib.test.js
+        // Mismo valor que cloudflare/test/worker.test.js
         assertEquals("3a1ec8160591", SpamRules.huella("5512345678"))
     }
 

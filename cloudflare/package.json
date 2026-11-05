@@ -1,0 +1,7 @@
+{
+  "name": "bloqueador-spam-worker",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test --disable-warning=ExperimentalWarning test/worker.test.js" },
+  "devDependencies": { "wrangler": "^3.90.0" }
+}

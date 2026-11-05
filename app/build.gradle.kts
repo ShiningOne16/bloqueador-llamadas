@@ -4,12 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Firebase solo se activa cuando existe app/google-services.json (ver firebase/README.md).
-// Sin ese archivo la app compila igual y la función de reportes queda como "sin configurar".
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
-}
-
 android {
     namespace = "com.ejemplo.bloqueador"
     compileSdk = 35
@@ -84,9 +78,5 @@ dependencies {
     implementation("com.klinkerapps:android-smsmms:5.2.6")
     // Anuncios (AdMob) y mensaje de consentimiento (UMP, incluido en este SDK)
     implementation("com.google.android.gms:play-services-ads:23.6.0")
-    // Reportes de spam de la comunidad (Firebase: inicio de sesión anónimo y funciones)
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-functions")
 }
 
