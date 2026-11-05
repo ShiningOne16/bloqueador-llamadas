@@ -239,7 +239,7 @@ private fun Bienvenida(onContinuar: () -> Unit, onOmitir: () -> Unit) {
             tamano = 96.dp
         )
         Text(
-            "Bienvenido a Bloqueador",
+            "Bienvenido a Teléfono",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() }

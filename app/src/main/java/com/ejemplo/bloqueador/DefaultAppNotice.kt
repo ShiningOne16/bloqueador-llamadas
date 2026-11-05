@@ -54,15 +54,15 @@ fun AvisoFiltroLlamadas(refreshKey: Int) {
         try {
             context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "Abre Ajustes → Apps predeterminadas para elegir Bloqueador.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Abre Ajustes → Apps predeterminadas para elegir Teléfono.", Toast.LENGTH_LONG).show()
         } catch (_: SecurityException) {
-            Toast.makeText(context, "Abre Ajustes → Apps predeterminadas para elegir Bloqueador.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Abre Ajustes → Apps predeterminadas para elegir Teléfono.", Toast.LENGTH_LONG).show()
         }
     }
 
     if (disponible && !elegido) {
         AvisoAppPredeterminada(
-            "Establecer Bloqueador para filtrar llamadas",
+            "Establecer Teléfono para filtrar llamadas",
             onClick = {
                 try {
                     solicitud.launch(roles.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))

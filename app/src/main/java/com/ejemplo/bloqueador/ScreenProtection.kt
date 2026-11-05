@@ -134,7 +134,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                     Paso(
                         2, estado.filtroLlamadas,
                         "Filtrar llamadas",
-                        "Elige Bloqueador como app de filtrado.",
+                        "Elige Teléfono como app de filtrado.",
                         "Activar",
                         onClick = { pedirRol.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)) }
                     )
@@ -142,7 +142,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                     Paso(
                         3, estado.accesoNotificaciones,
                         "Silenciar mensajes",
-                        "Activa Bloqueador en \"Acceso a notificaciones\".",
+                        "Activa Teléfono en \"Acceso a notificaciones\".",
                         "Activar",
                         onClick = { abrir(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                     )

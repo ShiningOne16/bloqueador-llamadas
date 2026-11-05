@@ -40,7 +40,7 @@ object SmsRepository {
 
     /** Solo se invoca desde un botón Enviar o la respuesta rápida protegida del sistema. */
     fun send(context: Context, address: String, body: String, subId: Int): Uri {
-        check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
+        check(isDefault(context)) { "Elige Teléfono como app de SMS predeterminada." }
         check(PhoneData.has(context, Manifest.permission.SEND_SMS)) { "Falta permiso para enviar SMS." }
         val to = SmsPolicy.recipient(address) ?: error("Escribe un único número válido.")
         require(body.isNotBlank()) { "Escribe un mensaje." }
@@ -86,7 +86,7 @@ object SmsRepository {
     }
 
     fun deleteThreads(context: Context, targets: List<SmsDeletionTarget>): Int {
-        check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
+        check(isDefault(context)) { "Elige Teléfono como app de SMS predeterminada." }
         val operations = targets.distinctBy { it.threadId }.map { target ->
             android.content.ContentProviderOperation.newDelete(Telephony.Sms.CONTENT_URI)
                 .withSelection("${Telephony.Sms.THREAD_ID}=? AND ${Telephony.Sms._ID}<=? AND ${Telephony.Sms.DATE}<=?",
@@ -96,7 +96,7 @@ object SmsRepository {
     }
 
     fun deleteMessages(context: Context, messages: List<SmsMsg>): Int {
-        check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
+        check(isDefault(context)) { "Elige Teléfono como app de SMS predeterminada." }
         val operations = messages.distinctBy { it.id }.map { message ->
             android.content.ContentProviderOperation.newDelete(Telephony.Sms.CONTENT_URI)
                 .withSelection("${Telephony.Sms._ID}=? AND ${Telephony.Sms.DATE}=?", arrayOf(message.id.toString(), message.date.toString())).build()
@@ -112,7 +112,7 @@ object SmsRepository {
     }
 
     fun deleteMessage(context: Context, message: SmsMsg): Int {
-        check(isDefault(context)) { "Elige Bloqueador como app de SMS predeterminada." }
+        check(isDefault(context)) { "Elige Teléfono como app de SMS predeterminada." }
         return context.contentResolver.delete(ContentUris.withAppendedId(Telephony.Sms.CONTENT_URI, message.id),
             "${Telephony.Sms.DATE}=?", arrayOf(message.date.toString()))
     }

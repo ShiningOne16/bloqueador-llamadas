@@ -131,12 +131,12 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                         withContext(Dispatchers.IO) { SmsRepository.deleteThread(context, thread) }
                         archive = archiveStore.read().restoreThread(thread.threadId); archiveStore.save(archive)
                         withContext(Dispatchers.IO) { SmsRepository.clearNotificationIfNoUnread(context, thread.threadId) }; abiertoId = null; recarga++
-                    } catch (_: Exception) { Toast.makeText(context, "No se pudo borrar. Comprueba que Bloqueador siga siendo la app de SMS predeterminada.", Toast.LENGTH_LONG).show() }
+                    } catch (_: Exception) { Toast.makeText(context, "No se pudo borrar. Comprueba que Teléfono siga siendo la app de SMS predeterminada.", Toast.LENGTH_LONG).show() }
                 }
             }, onCancelar = { deleteThread = null })
         } else {
         AlertDialog(onDismissRequest = { deleteThread = null }, title = { Text("Eliminar conversación de SMS") },
-            text = { Text("Android solo permite borrar SMS a tu app de mensajes predeterminada. Abre la conversación con ${thread.name ?: thread.address} y usa allí Eliminar. Abrirla no borra mensajes desde Bloqueador.") },
+            text = { Text("Android solo permite borrar SMS a tu app de mensajes predeterminada. Abre la conversación con ${thread.name ?: thread.address} y usa allí Eliminar. Abrirla no borra mensajes desde Teléfono.") },
             confirmButton = { TextButton(onClick = {
                 if (Acciones.manageSms(context, thread.address)) deleteThread = null
                 else Toast.makeText(context, "No se pudo abrir la app de SMS. Ábrela desde tu teléfono para eliminar la conversación.", Toast.LENGTH_LONG).show()
@@ -196,7 +196,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                 onSelectAll = { selectedThreads = visibleThreads.map { SmsDeletionTarget(it.threadId, it.last.id, it.last.date) } },
                 onDelete = { bulkDelete = selectedThreads.toList() }, enabled = !busy, canDelete = SmsRepository.isDefault(context))
             else Titulo("Mensajes", subtitulo = if (sinLeer > 0) "$sinLeer sin leer" else null)
-            if (selectionMode && !SmsRepository.isDefault(context)) Text("Para borrar varios SMS, elige Bloqueador como app de SMS predeterminada.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+            if (selectionMode && !SmsRepository.isDefault(context)) Text("Para borrar varios SMS, elige Teléfono como app de SMS predeterminada.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
             Column(Modifier.padding(horizontal = Esp.l)) {
                 SmsSetupCard(refreshKey + recarga) { recarga++ }
                 if (!selectionMode) TextButton(onClick = { multimedia = true }, enabled = tienePermiso) { Text("Multimedia recibida") }
@@ -371,7 +371,7 @@ private fun Conversacion(h: SmsThread, refreshKey: Int, onAtras: () -> Unit, arc
                 onSelectAll = { selectedMessages = mensajes.orEmpty().map { HistorySelection.key(it.id, it.date) } },
                 onDelete = { deleting = mensajes.orEmpty().filter { HistorySelection.key(it.id, it.date) in selectedMessages } },
                 enabled = !deletingBusy, canDelete = SmsRepository.isDefault(context))
-            if (!SmsRepository.isDefault(context)) Text("Elige Bloqueador como app de SMS predeterminada para borrar varios mensajes.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+            if (!SmsRepository.isDefault(context)) Text("Elige Teléfono como app de SMS predeterminada para borrar varios mensajes.", Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
         } else {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(

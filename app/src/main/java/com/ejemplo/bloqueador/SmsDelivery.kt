@@ -76,7 +76,7 @@ open class SmsDeliveryReceiver : BroadcastReceiver() {
                 }
                 SmsInboxQueue.enqueue(context)
             }
-            catch (_: Exception) { SmsNotifications.error(context, "No se pudo guardar un mensaje. Revisa el espacio libre y abre Bloqueador.") }
+            catch (_: Exception) { SmsNotifications.error(context, "No se pudo guardar un mensaje. Revisa el espacio libre y abre Teléfono.") }
             finally { result.finish() }
         }
     }
@@ -108,7 +108,7 @@ class SmsInboxWorker(context: Context, parameters: WorkerParameters) : Worker(co
             Result.success()
         } catch (_: Exception) {
             if (runAttemptCount < 6) Result.retry() else {
-                SmsNotifications.error(applicationContext, "Hay mensajes pendientes de guardar. Abre Bloqueador para reintentar; se conservan en la cola local.")
+                SmsNotifications.error(applicationContext, "Hay mensajes pendientes de guardar. Abre Teléfono para reintentar; se conservan en la cola local.")
                 Result.failure()
             }
         }

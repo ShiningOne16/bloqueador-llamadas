@@ -169,7 +169,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             Buscador(busqueda, { busqueda = it }, "Buscar en llamadas")
             Filtros(listOf("Todas", "Perdidas", "Bloqueadas", "Archivadas"), filtro) { filtro = it }
         }
-        if (filtro == 3) Text("Archivo local de Bloqueador. Toca una llamada para desarchivarla.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s),
+        if (filtro == 3) Text("Archivo local de Teléfono. Toca una llamada para desarchivarla.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(Esp.s))
 
@@ -281,7 +281,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             }, onCancelar = { deleteTarget = null })
     }
     if (denied) AlertDialog(onDismissRequest = { denied = false }, title = { Text("No se autorizó el borrado") },
-        text = { Text("Android no permite a Bloqueador borrar llamadas sin el permiso de escritura del registro. Puedes revisar sus permisos o borrar desde tu app de teléfono.") },
+        text = { Text("Android no permite a Teléfono borrar llamadas sin el permiso de escritura del registro. Puedes revisar sus permisos o borrar desde tu app de teléfono.") },
         confirmButton = { TextButton(onClick = {
             denied = false
             if (!Acciones.manageCallLog(context)) Toast.makeText(context, "Abre tu app de teléfono para borrar el registro.", Toast.LENGTH_LONG).show()

@@ -47,7 +47,7 @@ fun SmsSetupCard(refreshKey: Int, onChanged: () -> Unit = {}) {
     val notifications = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
     if (!current && SmsRepository.roleAvailable(context)) {
-        AvisoAppPredeterminada("Establecer Bloqueador como app de SMS predeterminada", onClick = { explain = true },
+        AvisoAppPredeterminada("Establecer Teléfono como app de SMS predeterminada", onClick = { explain = true },
             modifier = Modifier.padding(vertical = Esp.s))
     }
     if (!current && !SmsRepository.roleAvailable(context)) {
@@ -63,8 +63,8 @@ fun SmsSetupCard(refreshKey: Int, onChanged: () -> Unit = {}) {
             }
         }
     }
-    if (explain) AlertDialog(onDismissRequest = { explain = false }, title = { Text("Usar Bloqueador para tus SMS") },
-        text = { Text("Tus SMS existentes seguirán en el teléfono. Bloqueador recibirá y enviará SMS de texto, guardará los mensajes y permitirá borrarlos. Puede recibir y abrir MMS; enviar fotos y RCS todavía no está incluido. Los SMS pueden tener costo según tu operador y los MMS usan datos móviles. Puedes cambiar de app predeterminada en los ajustes de Android.") },
+    if (explain) AlertDialog(onDismissRequest = { explain = false }, title = { Text("Usar Teléfono para tus SMS") },
+        text = { Text("Tus SMS existentes seguirán en el teléfono. Teléfono recibirá y enviará SMS de texto, guardará los mensajes y permitirá borrarlos. Puede recibir y abrir MMS; enviar fotos y RCS todavía no está incluido. Los SMS pueden tener costo según tu operador y los MMS usan datos móviles. Puedes cambiar de app predeterminada en los ajustes de Android.") },
         confirmButton = { TextButton(onClick = {
             explain = false
             role.launch(context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_SMS))

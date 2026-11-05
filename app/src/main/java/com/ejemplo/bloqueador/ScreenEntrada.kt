@@ -97,7 +97,7 @@ fun PantallaNip(onEntrar: () -> Unit) {
                 onClick = {
                     llavero?.createConfirmDeviceCredentialIntent(
                         "Quitar el NIP de entrada",
-                        "Confirma el bloqueo de pantalla de tu teléfono para quitar el NIP de Bloqueador."
+                        "Confirma el bloqueo de pantalla de tu teléfono para quitar el NIP de Teléfono."
                     )?.let { restablecer.launch(it) }
                 },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -187,7 +187,7 @@ fun PantallaEntradaNip(onCerrar: () -> Unit, onChanged: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "Solo se ocultan dentro de Bloqueador: sus llamadas y mensajes se siguen tratando igual. Otras apps, " +
+                            "Solo se ocultan dentro de Teléfono: sus llamadas y mensajes se siguen tratando igual. Otras apps, " +
                                 "como la agenda o el teléfono del sistema, pueden seguir mostrándolos. Si la lista está vacía, " +
                                 "un NIP incorrecto no deja entrar. El NIP se vuelve a pedir al cerrar la app o tras " +
                                 "${EntradaRules.RELOCK_MS / 1000} segundos fuera de ella.",

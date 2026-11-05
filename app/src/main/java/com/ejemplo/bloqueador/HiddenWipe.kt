@@ -97,7 +97,7 @@ internal class AndroidHiddenWipe(
             "Concede los permisos de contactos, registro de llamadas y SMS en Ajustes y vuelve a intentarlo."
         }
         check(keys.isEmpty() || SmsRepository.isDefault(context)) {
-            "Elige Bloqueador como app de SMS predeterminada y vuelve a intentarlo."
+            "Elige Teléfono como app de SMS predeterminada y vuelve a intentarlo."
         }
     }
 
