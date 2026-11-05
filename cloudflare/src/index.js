@@ -2,6 +2,7 @@ import {
   CATEGORIAS, UMBRAL_REPORTES, MAX_REPORTES_POR_DIA, RETENCION_DIAS, DIA_MS,
   claveNumero, huella, sha256hex, instalacionValida, categoriaDominante, diaIso,
 } from './lib.js';
+import { loadTellows } from './tellows.js';
 
 const JSON_UTF8 = 'application/json; charset=utf-8';
 const LISTA_VACIA = JSON.stringify({ v: 1, generado: 0, min: UMBRAL_REPORTES, n: [] });
@@ -49,7 +50,8 @@ async function reportar(request, env) {
 }
 
 /** Junta los números con suficientes reportes en un solo archivo y limpia datos viejos. */
-export async function publicar(env, ahora = Date.now()) {
+export async function publicar(env, ahora = Date.now(), fetcher = fetch) {
+  await env.DB.prepare('DELETE FROM reportes WHERE creado < ?').bind(ahora - RETENCION_DIAS * DIA_MS).run();
   const { results } = await env.DB.prepare(
     'SELECT huella, categoria, COUNT(*) AS c FROM reportes GROUP BY huella, categoria'
   ).all();
@@ -64,18 +66,34 @@ export async function publicar(env, ahora = Date.now()) {
   for (const [h, e] of porNumero) {
     if (e.total >= UMBRAL_REPORTES) entradas.push([h, categoriaDominante(e.cats), e.total]);
   }
-  await env.LISTA.put('lista', JSON.stringify({ v: 1, generado: ahora, min: UMBRAL_REPORTES, n: entradas }));
+  const tellows = await loadTellows(env, ahora, fetcher);
+  const combined = new Map(tellows.n.map((entry) => [entry[0], entry]));
+  // Si también hay suficientes reportes propios, esa entrada no depende de Tellows.
+  for (const entry of entradas) combined.set(entry[0], entry);
+  const n = [...combined.values()];
+  await env.LISTA.put('lista', JSON.stringify({
+    v: 1, generado: ahora, min: UMBRAL_REPORTES, n,
+    tellows_hasta: tellows.hasta, fuentes: { tellows: tellows.fuente },
+  }));
 
   await env.DB.prepare('DELETE FROM reportes WHERE creado < ?').bind(ahora - RETENCION_DIAS * DIA_MS).run();
   await env.DB.prepare('DELETE FROM limites WHERE dia < ?').bind(diaIso(ahora - 3 * DIA_MS)).run();
-  return entradas.length;
+  return n.length;
 }
 
 export async function manejar(request, env) {
-  const { pathname } = new URL(request.url);
+  const url = new URL(request.url);
+  const { pathname } = url;
   if (pathname === '/lista' && request.method === 'GET') {
     const valor = await env.LISTA.get('lista');
-    return new Response(valor || LISTA_VACIA, {
+    let body = valor || LISTA_VACIA;
+    // Los clientes antiguos no conocen la caducidad de Tellows: solo reciben comunidad.
+    if (valor && url.searchParams.get('fuentes') !== '2') {
+      const lista = JSON.parse(valor);
+      lista.n = lista.n.filter((entry) => entry[3] !== 'tellows');
+      body = JSON.stringify(lista);
+    }
+    return new Response(body, {
       headers: { 'content-type': JSON_UTF8, 'cache-control': 'public, max-age=3600' },
     });
   }
@@ -88,3 +106,4 @@ export default {
   fetch: (request, env) => manejar(request, env),
   scheduled: (_evento, env, ctx) => ctx.waitUntil(publicar(env)),
 };
+
