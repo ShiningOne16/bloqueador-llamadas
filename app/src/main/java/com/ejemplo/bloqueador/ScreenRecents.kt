@@ -58,7 +58,11 @@ import kotlinx.coroutines.withContext
 fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion: () -> Unit) {
     val context = LocalContext.current
     val tienePermiso = remember(refreshKey) { PhoneData.has(context, Manifest.permission.READ_CALL_LOG) }
-    val pasosFaltantes = remember(refreshKey) { estadoConfig(context).faltan }
+    // El rol de filtrado tiene su propio aviso con acceso directo a Android.
+    val pasosFaltantes = remember(refreshKey) {
+        val estado = estadoConfig(context)
+        estado.faltan - if (estado.filtroLlamadas) 0 else 1
+    }
     val archiveStore = remember { ArchiveStore(context) }
     var archive by remember(refreshKey) { mutableStateOf(archiveStore.read()) }
     var filtro by rememberSaveable { mutableIntStateOf(0) }
@@ -145,8 +149,11 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
             onDelete = { deleteTarget = llamadas.orEmpty().filter { it.archiveKey() in selectedKeys } }, enabled = !busy)
         else Titulo("Recientes")
 
-        if (!selectionMode) AvisoTemporal(refreshKey)
-        if (pasosFaltantes > 0) AvisoConfigurar(pasosFaltantes, irAProteccion)
+        if (!selectionMode) {
+            AvisoFiltroLlamadas(refreshKey)
+            AvisoTemporal(refreshKey)
+            if (pasosFaltantes > 0) AvisoConfigurar(pasosFaltantes, irAProteccion)
+        }
 
         if (!tienePermiso) {
             PermisoFaltante(

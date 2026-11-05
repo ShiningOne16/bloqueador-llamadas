@@ -46,17 +46,21 @@ fun SmsSetupCard(refreshKey: Int, onChanged: () -> Unit = {}) {
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { revision++; onChanged() }
     val notifications = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    if (!current || !ready || !notifications) Tarjeta {
+    if (!current && SmsRepository.roleAvailable(context)) {
+        AvisoAppPredeterminada("Establecer Bloqueador como app de SMS predeterminada", onClick = { explain = true },
+            modifier = Modifier.padding(vertical = Esp.s))
+    }
+    if (!current && !SmsRepository.roleAvailable(context)) {
+        Text("Este dispositivo no ofrece el rol de app de SMS.", color = MaterialTheme.colorScheme.error)
+    }
+    if (current && (!ready || !notifications)) Tarjeta {
         Column(Modifier.padding(Esp.l), verticalArrangement = Arrangement.spacedBy(Esp.s)) {
-            Text(if (current) "Termina de activar tus SMS" else "Llamadas y SMS, en Bloqueador", style = MaterialTheme.typography.titleMedium)
-            Text(if (current) "Los mensajes se guardan aunque deniegues las notificaciones."
-                else "Elige Bloqueador como app de SMS para enviar, recibir y borrar desde esta misma interfaz.", style = MaterialTheme.typography.bodyMedium)
+            Text("Termina de activar tus SMS", style = MaterialTheme.typography.titleMedium)
+            Text("Los mensajes se guardan aunque deniegues las notificaciones.", style = MaterialTheme.typography.bodyMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
-                if (!current) Button(enabled = SmsRepository.roleAvailable(context), onClick = { explain = true }) { Text("Usar como app de SMS") }
-                if (current && !ready) OutlinedButton(onClick = { permissions.launch(SmsRepository.permissions) }) { Text("Permitir SMS") }
+                if (!ready) OutlinedButton(onClick = { permissions.launch(SmsRepository.permissions) }) { Text("Permitir SMS") }
                 if (!notifications && Build.VERSION.SDK_INT >= 33) OutlinedButton(onClick = { permissions.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS)) }) { Text("Activar notificaciones") }
             }
-            if (!SmsRepository.roleAvailable(context)) Text("Este dispositivo no ofrece el rol de app de SMS.", color = MaterialTheme.colorScheme.error)
         }
     }
     if (explain) AlertDialog(onDismissRequest = { explain = false }, title = { Text("Usar Bloqueador para tus SMS") },
