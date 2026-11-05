@@ -1,6 +1,7 @@
-# Servidor de la lista de spam (Cloudflare, plan gratis)
+# Servidor de la lista de spam (Cloudflare)
 
-Un Worker de Cloudflare con una base D1 (reportes) y un KV (la lista publicada). Todo cabe en el plan gratuito.
+Un Worker de Cloudflare con una base D1 (reportes) y un KV (la lista publicada).
+El coste de Cloudflare depende del volumen y los límites del plan. El acceso a Tellows se contrata por separado.
 No guarda números legibles (solo una huella de 12 caracteres) ni IP ni identificadores (solo huellas con una sal secreta).
 
 ## Montarlo (una sola vez)

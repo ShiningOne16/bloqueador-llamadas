@@ -32,19 +32,20 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
     var version by remember { mutableIntStateOf(0) }
     var total by remember { mutableIntStateOf(0) }
     var tellows by remember { mutableStateOf("Pendiente de activación") }
-    val actualizada = remember(version) { store.ultimaActualizacion }
+    var actualizada by remember { mutableLongStateOf(store.ultimaActualizacion) }
     BackHandler(onBack = onCerrar)
 
     // Lee el tamaño de la lista fuera del hilo principal y vuelve a leerlo mientras llega una descarga.
     LaunchedEffect(version, activo) {
         total = withContext(Dispatchers.IO) { SpamLista.total(context) }
         tellows = withContext(Dispatchers.IO) { SpamLista.estadoTellows(context) }
+        actualizada = store.ultimaActualizacion
         if (activo && configurado) {
             repeat(6) {
                 delay(2_000)
                 total = withContext(Dispatchers.IO) { SpamLista.total(context) }
                 tellows = withContext(Dispatchers.IO) { SpamLista.estadoTellows(context) }
-                version++
+                actualizada = store.ultimaActualizacion
             }
         }
     }
