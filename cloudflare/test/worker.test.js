@@ -4,6 +4,17 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { manejar, publicar } from '../src/index.js';
 import { huella, claveNumero, categoriaDominante, UMBRAL_REPORTES, MAX_REPORTES_POR_DIA, DIA_MS } from '../src/lib.js';
+import { convertScorelist, loadTellows, TELLOWS_MAX_AGE } from '../src/tellows.js';
+
+const CSV_HEADER = 'Nummer;Score;Kommentare;Land;Vorwahl;Suchanfragen;Anruftyp';
+const csvResponse = (rows = ['+525512345678;8;4;52;55;100;Unbekannt']) =>
+  new Response(CSV_HEADER + '\n' + rows.join('\n'), { headers: { 'content-type': 'text/csv' } });
+function configureTellows(env) {
+  Object.assign(env, {
+    TELLOWS_ENABLED: 'true', TELLOWS_LICENSE_APPROVED: 'true',
+    TELLOWS_APIKEY_MD5: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  });
+}
 
 // Base de datos real (SQLite) con la forma de la API de D1, para probar el SQL de verdad.
 function crearEntorno() {
@@ -136,3 +147,133 @@ test('rutas desconocidas dan 404 y los métodos incorrectos no reportan', async 
   assert.strictEqual((await manejar(new Request('https://x.test/otra'), env)).status, 404);
   assert.strictEqual((await manejar(new Request('https://x.test/reportar'), env)).status, 404);
 });
+
+test('Tellows no hace peticiones sin activación, licencia y credencial', async () => {
+  const { env } = crearEntorno();
+  const neverFetch = () => { throw new Error('No debe consultar al proveedor'); };
+  assert.deepStrictEqual((await loadTellows(env, DIA_MS, neverFetch)).n, []);
+  configureTellows(env);
+  for (const [key, value] of [
+    ['TELLOWS_ENABLED', 'false'], ['TELLOWS_LICENSE_APPROVED', 'false'], ['TELLOWS_APIKEY_MD5', 'incorrecta'],
+  ]) {
+    const copy = { ...env, [key]: value };
+    assert.strictEqual((await loadTellows(copy, DIA_MS, neverFetch)).fuente.estado, 'pendiente');
+  }
+});
+
+test('Scorelist acepta CSV con BOM, comillas, saltos de línea y columnas extra', async () => {
+  const rows = await convertScorelist('\uFEFF' + CSV_HEADER + ';Anrufname\r\n' +
+    '+525512345678;8;4;52;55;100;Otro;"Nombre; con ""comillas""\ny salto"\r\n' +
+    '5512345678;9;8;52;55;100;Otro;duplicado\r\n' +
+    '00525598765432;7;3;52;55;100;Otro;válido\r\n');
+  assert.strictEqual(rows.length, 2);
+  assert.deepStrictEqual(rows[0], [await huella('5512345678'), 0, 0, 'tellows', 9]);
+  assert.strictEqual(rows[1][0], await huella('5598765432'));
+});
+
+test('Scorelist filtra riesgo, comentarios y números extranjeros', async () => {
+  const rows = await convertScorelist(CSV_HEADER + '\n' + [
+    '+525512345678;6;50;52;55;100;Otro',
+    '+525598765432;9;2;52;55;100;Otro',
+    '+15512345678;9;10;1;55;100;Otro',
+    '+525511112222;7;3;52;55;100;Otro',
+  ].join('\n'));
+  assert.deepStrictEqual(rows, [[await huella('5511112222'), 0, 0, 'tellows', 7]]);
+});
+
+test('Scorelist rechaza HTML, columnas ausentes y CSV truncado', async () => {
+  for (const text of ['<html>Error</html>', 'Nummer;Score\n123;8', CSV_HEADER + '\n"sin cierre', CSV_HEADER + '\n+525512345678;NaN;4']) {
+    await assert.rejects(convertScorelist(text));
+  }
+});
+
+test('la descarga usa México y no publica ni conserva credenciales o números legibles', async () => {
+  const { env } = crearEntorno();
+  configureTellows(env);
+  let called = 0;
+  await publicar(env, DIA_MS, async (input, options) => {
+    called++;
+    const url = new URL(input);
+    assert.strictEqual(url.origin, 'https://www.tellows.de');
+    assert.strictEqual(url.pathname, '/stats/partnerscoredata');
+    assert.strictEqual(url.searchParams.get('country'), 'mx');
+    assert.strictEqual(url.searchParams.get('minscore'), '7');
+    assert.strictEqual(url.searchParams.get('mincomments'), '3');
+    assert.strictEqual(url.searchParams.get('numberformatinternational'), '1');
+    assert.strictEqual(options.redirect, 'error');
+    return csvResponse();
+  });
+  assert.strictEqual(called, 1);
+  const list = await (await manejar(new Request('https://x.test/lista?fuentes=2'), env)).json();
+  assert.strictEqual(list.fuentes.tellows.estado, 'activa');
+  assert.strictEqual(list.n.length, 1);
+  const legacy = await (await manejar(new Request('https://x.test/lista'), env)).json();
+  assert.deepStrictEqual(legacy.n, []); // Sin Tellows para clientes que no conocen su caducidad.
+  for (const text of [JSON.stringify(list), await env.LISTA.get('tellows-mx')]) {
+    assert.ok(!text.includes(env.TELLOWS_APIKEY_MD5));
+    assert.ok(!text.includes('5512345678'));
+  }
+});
+
+test('Tellows reutiliza la copia diaria y reemplaza entradas retiradas al actualizar', async () => {
+  const { env } = crearEntorno();
+  configureTellows(env);
+  let calls = 0;
+  const fetcher = async () => { calls++; return calls === 1 ? csvResponse() : csvResponse([]); };
+  await loadTellows(env, DIA_MS, fetcher);
+  assert.strictEqual((await loadTellows(env, DIA_MS + 6 * 3600000, fetcher)).n.length, 1);
+  assert.strictEqual(calls, 1);
+  assert.strictEqual((await loadTellows(env, 2 * DIA_MS, fetcher)).n.length, 0);
+  assert.strictEqual(calls, 2);
+});
+
+test('fallos del proveedor conservan la última copia sin prolongar su caducidad', async () => {
+  const { env } = crearEntorno();
+  configureTellows(env);
+  await loadTellows(env, DIA_MS, async () => csvResponse());
+  for (const response of [new Response('Error', { status: 401 }), new Response('<html>Error</html>')]) {
+    const result = await loadTellows(env, 2 * DIA_MS, async () => response);
+    assert.strictEqual(result.n.length, 1);
+    assert.strictEqual(result.fuente.estado, 'sin_actualizar');
+    assert.strictEqual(result.hasta, DIA_MS + TELLOWS_MAX_AGE);
+  }
+  const expired = await loadTellows(env, DIA_MS + TELLOWS_MAX_AGE, async () => { throw new Error('Red caída'); });
+  assert.deepStrictEqual(expired.n, []);
+  assert.strictEqual(expired.hasta, 0);
+  assert.strictEqual(expired.fuente.estado, 'no_disponible');
+});
+
+test('rechaza respuestas demasiado grandes sin reemplazar una copia válida', async () => {
+  const { env } = crearEntorno();
+  configureTellows(env);
+  await loadTellows(env, DIA_MS, async () => csvResponse());
+  const result = await loadTellows(env, 2 * DIA_MS, async () =>
+    new Response('x'.repeat(8 * 1024 * 1024 + 1)));
+  assert.strictEqual(result.fuente.estado, 'sin_actualizar');
+  assert.strictEqual(result.n.length, 1);
+});
+
+test('combina fuentes sin duplicados y los reportes propios no caducan con Tellows', async () => {
+  const { env } = crearEntorno();
+  configureTellows(env);
+  const now = Date.now();
+  for (let i = 0; i < UMBRAL_REPORTES; i++) await reportar(env);
+  await publicar(env, now, async () => csvResponse([
+    '+525512345678;9;10;52;55;100;Otro',
+    '+525598765432;8;3;52;55;100;Otro',
+  ]));
+  let list = JSON.parse(await env.LISTA.get('lista'));
+  assert.strictEqual(list.n.length, 2);
+  assert.deepStrictEqual(list.n.find((entry) => entry[0] === '3a1ec8160591'), ['3a1ec8160591', 1, UMBRAL_REPORTES]);
+  await publicar(env, now + TELLOWS_MAX_AGE, async () => new Response('Error', { status: 503 }));
+  list = JSON.parse(await env.LISTA.get('lista'));
+  assert.deepStrictEqual(list.n, [['3a1ec8160591', 1, UMBRAL_REPORTES]]);
+});
+
+test('los reportes vencidos desaparecen de la publicación, no solo de la base', async () => {
+  const { env } = crearEntorno();
+  for (let i = 0; i < UMBRAL_REPORTES; i++) await reportar(env);
+  await publicar(env, Date.now() + 200 * DIA_MS);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+});
+

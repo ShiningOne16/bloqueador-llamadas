@@ -31,14 +31,22 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
     var activo by remember { mutableStateOf(store.activo) }
     var version by remember { mutableIntStateOf(0) }
     var total by remember { mutableIntStateOf(0) }
-    val actualizada = remember(version) { store.ultimaActualizacion }
+    var tellows by remember { mutableStateOf("Pendiente de activación") }
+    var actualizada by remember { mutableLongStateOf(store.ultimaActualizacion) }
     BackHandler(onBack = onCerrar)
 
     // Lee el tamaño de la lista fuera del hilo principal y vuelve a leerlo mientras llega una descarga.
     LaunchedEffect(version, activo) {
         total = withContext(Dispatchers.IO) { SpamLista.total(context) }
+        tellows = withContext(Dispatchers.IO) { SpamLista.estadoTellows(context) }
+        actualizada = store.ultimaActualizacion
         if (activo && configurado) {
-            repeat(6) { delay(2_000); total = withContext(Dispatchers.IO) { SpamLista.total(context) }; version++ }
+            repeat(6) {
+                delay(2_000)
+                total = withContext(Dispatchers.IO) { SpamLista.total(context) }
+                tellows = withContext(Dispatchers.IO) { SpamLista.estadoTellows(context) }
+                actualizada = store.ultimaActualizacion
+            }
         }
     }
 
@@ -58,7 +66,7 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
             Tarjeta {
                 FilaInterruptor(
                     Icons.Filled.Report, "Bloquear números de la lista",
-                    "Rechaza las llamadas de desconocidos que la comunidad reportó como spam. Tus contactos nunca se bloquean.",
+                    "Rechaza las llamadas de desconocidos incluidos en las fuentes de spam disponibles. Tus contactos nunca se bloquean.",
                     activo, habilitado = configurado
                 ) { quiere ->
                     store.activo = quiere; activo = quiere
@@ -68,6 +76,12 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
                 }
             }
             Tarjeta {
+                ListItem(
+                    headlineContent = { Text("Tellows · México") },
+                    supportingContent = { Text(tellows) },
+                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+                )
+                HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
                 ListItem(
                     headlineContent = { Text("Números en la lista") },
                     trailingContent = { Text("$total", style = MaterialTheme.typography.titleMedium) },
@@ -93,7 +107,7 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
             Text(
                 "• La lista se descarga completa y se consulta en tu teléfono: el servidor nunca sabe quién te llama.\n" +
                     "• Al reportar solo se envía el número reportado, el tipo de spam y un identificador anónimo. No se envían tus contactos, llamadas ni mensajes.\n" +
-                    "• Un número entra en la lista cuando lo reportan al menos 3 personas distintas. La lista guarda huellas, no números legibles.\n" +
+                    "• La lista comunitaria requiere al menos 3 reportes. Tellows, cuando esté disponible, aporta números de México con puntuación de riesgo de 7 a 9 y al menos 3 comentarios. La lista descargada guarda huellas, no números legibles.\n" +
                     "• Si un número está mal marcado, en su panel puedes tocar \"No es spam\" y deja de bloquearse en tu teléfono.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -151,3 +165,4 @@ internal fun DialogoReporteSpam(
         dismissButton = { TextButton(onClick = onCerrar) { Text("Cancelar") } }
     )
 }
+

@@ -36,6 +36,15 @@ object SpamRules {
 
     /** Un número se puede reportar si parece un teléfono real (7 a 15 dígitos). */
     fun reportable(numero: String) = PremiumRules.validNumber(numero)
+
+    /** Tellows México no debe bloquear una llamada extranjera con los mismos últimos 10 dígitos. */
+    fun numeroMexicano(numero: String): Boolean {
+        val raw = numero.trim()
+        val digits = raw.filter { it in '0'..'9' }
+        return (digits.length == 12 && digits.startsWith("52")) ||
+            (digits.length == 14 && digits.startsWith("0052")) ||
+            (!raw.startsWith("+") && digits.length == 10)
+    }
 }
 
 /** Lista de spam descargada, guardada en el teléfono. Consultarla no envía nada a internet. */
@@ -44,22 +53,31 @@ object SpamLista {
 
     @Volatile private var cache: Map<String, Int>? = null
     @Volatile private var cacheSello = -1L
+    @Volatile private var cacheVence = Long.MAX_VALUE
+    @Volatile private var cacheTellows: Set<String> = emptySet()
 
     private fun archivo(context: Context) = File(context.applicationContext.filesDir, ARCHIVO)
 
-    private fun mapa(context: Context): Map<String, Int> {
+    @Synchronized
+    internal fun mapa(context: Context, ahora: Long = System.currentTimeMillis()): Map<String, Int> {
         val f = archivo(context)
         if (!f.exists()) return emptyMap()
         val sello = f.lastModified()
-        cache?.let { if (sello == cacheSello) return it }
+        cache?.let { if (sello == cacheSello && ahora < cacheVence) return it }
         val nuevo = try {
             val raw = JSONObject(f.readText())
             val array = raw.getJSONArray("n")
+            val tellowsHasta = raw.optLong("tellows_hasta", 0L)
+            cacheVence = if (tellowsHasta > ahora) tellowsHasta else Long.MAX_VALUE
             val m = HashMap<String, Int>(array.length() * 2)
+            val tellows = mutableSetOf<String>()
             for (i in 0 until array.length()) {
                 val e = array.getJSONArray(i)
+                if (e.optString(3) == "tellows" && ahora >= tellowsHasta) continue
                 m[e.getString(0)] = e.optInt(1, 0)
+                if (e.optString(3) == "tellows") tellows.add(e.getString(0))
             }
+            cacheTellows = tellows
             m
         } catch (_: Exception) {
             emptyMap()
@@ -71,18 +89,34 @@ object SpamLista {
 
     fun total(context: Context) = mapa(context).size
 
+    /** Se muestra la fuente real de la última descarga; una integración pendiente no cuenta como activa. */
+    fun estadoTellows(context: Context): String = try {
+        val raw = JSONObject(archivo(context).readText())
+        val info = raw.optJSONObject("fuentes")?.optJSONObject("tellows")
+        val vigente = System.currentTimeMillis() < raw.optLong("tellows_hasta", 0L)
+        when {
+            info == null || info.optString("estado") == "pendiente" -> "Pendiente de activación"
+            !vigente -> "Sin datos vigentes"
+            info.optString("estado") == "sin_actualizar" -> "Usando la última lista disponible"
+            else -> "Lista disponible"
+        }
+    } catch (_: Exception) { "Pendiente de activación" }
+
     /** Categoría reportada para ese número, o null si no está en la lista. */
+    @Synchronized
     fun categoria(context: Context, numero: String): CategoriaSpam? {
         val h = SpamRules.huella(numero)
         if (h.isEmpty()) return null
-        return mapa(context)[h]?.let { CategoriaSpam.deIndice(it) }
+        val entries = mapa(context)
+        if (h in cacheTellows && !SpamRules.numeroMexicano(numero)) return null
+        return entries[h]?.let { CategoriaSpam.deIndice(it) }
     }
 
     /** Descarga la lista pública. Devuelve false si no hay red, no hay servidor configurado o el archivo no sirve. */
     fun actualizar(context: Context): Boolean {
         val base = SpamComunidad.servidor(context) ?: return false
         return try {
-            val conexion = URL("$base/lista").openConnection() as HttpURLConnection
+            val conexion = URL("$base/lista?fuentes=2").openConnection() as HttpURLConnection
             conexion.connectTimeout = 15_000
             conexion.readTimeout = 30_000
             conexion.useCaches = false
@@ -194,3 +228,4 @@ object SpamComunidad {
         }
     }
 }
+
