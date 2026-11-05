@@ -2,5 +2,5 @@
 <resources>
     <!-- Dirección https del Worker de Cloudflare (ver cloudflare/README.md), p. ej. https://bloqueador-spam.tu-usuario.workers.dev
          Vacía = la lista y los reportes de spam quedan desactivados. -->
-    <string name="spam_server_url" translatable="false"></string>
+    <string name="spam_server_url" translatable="false">https://bloqueador-spam.bloqueadorllamadas.workers.dev</string>
 </resources>
