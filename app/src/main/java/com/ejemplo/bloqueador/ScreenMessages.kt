@@ -131,12 +131,12 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
                         withContext(Dispatchers.IO) { SmsRepository.deleteThread(context, thread) }
                         archive = archiveStore.read().restoreThread(thread.threadId); archiveStore.save(archive)
                         withContext(Dispatchers.IO) { SmsRepository.clearNotificationIfNoUnread(context, thread.threadId) }; abiertoId = null; recarga++
-                    } catch (_: Exception) { Toast.makeText(context, "No se pudo borrar. Comprueba que Teléfono siga siendo la app de SMS predeterminada.", Toast.LENGTH_LONG).show() }
+                    } catch (_: Exception) { Toast.makeText(context, "No se pudo borrar. Comprueba que esta app siga siendo la app de SMS predeterminada.", Toast.LENGTH_LONG).show() }
                 }
             }, onCancelar = { deleteThread = null })
         } else {
         AlertDialog(onDismissRequest = { deleteThread = null }, title = { Text("Eliminar conversación de SMS") },
-            text = { Text("Android solo permite borrar SMS a tu app de mensajes predeterminada. Abre la conversación con ${thread.name ?: thread.address} y usa allí Eliminar. Abrirla no borra mensajes desde Teléfono.") },
+            text = { Text("Android solo permite borrar SMS a tu app de mensajes predeterminada. Abre la conversación con ${thread.name ?: thread.address} y usa allí Eliminar. Abrirla no borra mensajes desde esta app.") },
             confirmButton = { TextButton(onClick = {
                 if (Acciones.manageSms(context, thread.address)) deleteThread = null
                 else Toast.makeText(context, "No se pudo abrir la app de SMS. Ábrela desde tu teléfono para eliminar la conversación.", Toast.LENGTH_LONG).show()

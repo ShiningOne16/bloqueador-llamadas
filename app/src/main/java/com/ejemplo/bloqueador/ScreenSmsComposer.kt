@@ -64,7 +64,7 @@ fun SmsSetupCard(refreshKey: Int, onChanged: () -> Unit = {}) {
         }
     }
     if (explain) AlertDialog(onDismissRequest = { explain = false }, title = { Text("Usar Teléfono para tus SMS") },
-        text = { Text("Tus SMS existentes seguirán en el teléfono. Teléfono recibirá y enviará SMS de texto, guardará los mensajes y permitirá borrarlos. Puede recibir y abrir MMS; enviar fotos y RCS todavía no está incluido. Los SMS pueden tener costo según tu operador y los MMS usan datos móviles. Puedes cambiar de app predeterminada en los ajustes de Android.") },
+        text = { Text("Tus SMS existentes seguirán en el teléfono. Esta app recibirá y enviará SMS de texto, guardará los mensajes y permitirá borrarlos. Puede recibir y abrir MMS; enviar fotos y RCS todavía no está incluido. Los SMS pueden tener costo según tu operador y los MMS usan datos móviles. Puedes cambiar de app predeterminada en los ajustes de Android.") },
         confirmButton = { TextButton(onClick = {
             explain = false
             role.launch(context.getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_SMS))

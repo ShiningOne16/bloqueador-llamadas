@@ -307,10 +307,10 @@ private fun Administrar(store: HiddenStore, onChanged: () -> Unit, onBloquear: (
             Tarjeta {
                 Column(Modifier.padding(Esp.l), verticalArrangement = Arrangement.spacedBy(Esp.s)) {
                     Icon(Icons.Filled.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text("Sin rastro en Teléfono", style = MaterialTheme.typography.titleMedium)
+                    Text("Sin rastro en esta app", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Un contacto oculto no suena ni te avisa: sus llamadas se rechazan y sus mensajes se descartan " +
-                            "(estos últimos, si Teléfono es tu app de SMS predeterminada). No aparece en contactos, " +
+                            "(estos últimos, si esta app es tu app de SMS predeterminada). No aparece en contactos, " +
                             "recientes ni mensajes, y no deja registro.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
