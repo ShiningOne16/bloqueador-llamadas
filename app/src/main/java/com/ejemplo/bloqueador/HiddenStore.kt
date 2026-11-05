@@ -126,6 +126,9 @@ class HiddenStore(context: Context) {
     /** Un reinicio no puede interpretar un error de descifrado como una lista vacía. */
     internal fun contactsForWipe(): List<HiddenContact> = readContacts(strict = true)
 
+    /** Si no se puede leer la lista privada, no se autoriza ninguna exportación. */
+    internal fun contactsForReporting(): List<HiddenContact> = readContacts(strict = true)
+
     private fun readContacts(strict: Boolean): List<HiddenContact> {
         val blob = prefs.getString("data", null) ?: return emptyList()
         val raw = crypto.decrypt(blob) ?: if (strict) {

@@ -23,12 +23,12 @@ class SpamListaTest {
     }
 
     @Test fun oldCommunityListsRemainCompatible() {
-        write("""{"v":1,"n":[["community",1,3]]}""")
+        write("""{"v":1,"generado":1,"n":[["community",1,3]]}""")
         assertEquals(mapOf("community" to 1), SpamLista.mapa(context, 100))
     }
 
     @Test fun tellowsExpiresEvenWhenTheFileHasNotChangedAndThereIsNoNetwork() {
-        write("""{"v":1,"tellows_hasta":200,"n":[["community",1,3],["tellows",0,0,"tellows",8]]}""")
+        write("""{"v":1,"generado":1,"tellows_hasta":200,"n":[["community",1,3],["tellows",0,0,"tellows",8]]}""")
         assertEquals(mapOf("community" to 1, "tellows" to 0), SpamLista.mapa(context, 100))
         assertEquals(mapOf("community" to 1), SpamLista.mapa(context, 200))
         assertEquals(mapOf("community" to 1), SpamLista.mapa(context, 300))
@@ -53,6 +53,37 @@ class SpamListaTest {
         assertEquals(CategoriaSpam.OTRO, SpamLista.categoria(context, "+525512345678"))
         assertEquals(CategoriaSpam.OTRO, SpamLista.categoria(context, "5512345678"))
         assertNull(SpamLista.categoria(context, "+15512345678"))
+        assertNull(SpamLista.categoria(context, "+345512345678"))
+    }
+
+    @Test fun communityExpiresOfflineWithoutChangingTheFile() {
+        val until = 100 + SpamRules.VIGENCIA_LISTA_MS
+        write("""{"v":1,"generado":100,"comunidad_hasta":$until,"n":[["community",1,3]]}""")
+        assertEquals(mapOf("community" to 1), SpamLista.mapa(context, 101))
+        assertTrue(SpamLista.mapa(context, until).isEmpty())
+        assertTrue(SpamLista.mapa(context, until + 1).isEmpty())
+    }
+
+    @Test fun legacyCommunityUsesGenerationTimeAndCannotExtendTheSevenDayLimit() {
+        for (expiry in listOf("", ",\"comunidad_hasta\":9999999999999")) {
+            write("""{"v":1,"generado":100$expiry,"n":[["community",1,3]]}""")
+            assertEquals(mapOf("community" to 1), SpamLista.mapa(context, 101))
+            assertTrue(SpamLista.mapa(context, 100 + SpamRules.VIGENCIA_LISTA_MS).isEmpty())
+        }
+    }
+
+    @Test fun undatedAndUncorroboratedCommunityEntriesAreNotUsed() {
+        write("""{"v":1,"n":[["community",1,3]]}""")
+        assertTrue(SpamLista.mapa(context, 100).isEmpty())
+        write("""{"v":1,"generado":1,"n":[["community",1,2]]}""")
+        assertTrue(SpamLista.mapa(context, 100).isEmpty())
+    }
+
+    @Test fun communityDoesNotMatchForeignNumbersWithTheSameSuffix() {
+        val key = SpamRules.huella("5512345678")
+        val now = System.currentTimeMillis()
+        write("""{"v":1,"generado":$now,"n":[["$key",1,3]]}""")
+        assertEquals(CategoriaSpam.COBRANZA, SpamLista.categoria(context, "+525512345678"))
         assertNull(SpamLista.categoria(context, "+345512345678"))
     }
 }

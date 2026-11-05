@@ -172,6 +172,20 @@ Las pruebas cubren límites de horario, turnos nocturnos, cambio de semana, exce
 de perfiles y conservación del borrador al recrear la actividad. Antes de distribuir, prueba llamadas
 reales y notificaciones SMS en un dispositivo con el rol de filtrado y los permisos concedidos.
 
+## Reportes voluntarios de spam
+
+La agenda y el historial permanecen en el teléfono. Una llamada perdida o una etiqueta sospechosa
+solo propone revisar el número al abrir su panel. **Reportar y bloquear** pide confirmación y categoría:
+envía únicamente el número mexicano elegido, la categoría y un identificador aleatorio de instalación.
+El servidor recibe la IP para limitar abusos; las huellas almacenadas no garantizan anonimato.
+Los contactos ocultos nunca se exportan y los contactos normales no forman una lista blanca global.
+
+El bloqueo personal funciona aunque falle el envío. La lista comunitaria exige tres instalaciones y
+redes distintas, con límites diarios; no es una verificación de identidad de tres personas. Los reportes
+caducan a los 180 días y esta versión deja de usar una copia comunitaria tras 7 días sin actualizarla.
+**No es spam** quita el bloqueo manual, evita el bloqueo por la lista e intenta retirar tu voto. Puedes
+reintentar si falla el servidor; otras reglas personales siguen aplicándose.
+
 ## Cómo obtener el APK
 
 ### Opción A: Android Studio (computadora)
