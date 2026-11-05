@@ -7,3 +7,5 @@ local.properties
 node_modules/
 .wrangler/
 cloudflare/package-lock.json
+cloudflare/SAL-NO-SUBIR.txt
+cloudflare/DIRECCION-DEL-SERVIDOR.txt
