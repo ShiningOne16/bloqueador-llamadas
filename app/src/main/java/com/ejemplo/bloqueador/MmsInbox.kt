@@ -114,7 +114,7 @@ object MmsInbox {
 
     fun list(context: Context): List<MmsItem> {
         val output = mutableListOf<MmsItem>()
-        val hidden = HiddenStore(context).hiddenKeys()
+        val hidden = VistaOculta.claves(context)
         context.contentResolver.query(Telephony.Mms.Inbox.CONTENT_URI, arrayOf("_id", "date", "m_type"), null, null, "date DESC")?.use { rows ->
             while (rows.moveToNext() && output.size < 200) {
                 val id = rows.getLong(0)

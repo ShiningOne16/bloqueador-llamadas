@@ -27,7 +27,7 @@ fun PantallaNotas(onCerrar: () -> Unit) {
     val context = LocalContext.current
     val store = remember { NoteStore(context) }
     // Los números de contactos ocultos nunca se muestran.
-    val ocultos = remember { HiddenStore(context).hiddenKeys() }
+    val ocultos = remember { VistaOculta.claves(context) }
     var version by remember { mutableIntStateOf(0) }
     val notas = remember(version) { store.all().filterNot { HiddenRules.isHiddenNumber(ocultos, it.number) } }
     var editando by remember { mutableStateOf<NumberNote?>(null) }

@@ -13,18 +13,19 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Cifra la lista de contactos ocultos con una llave que Android guarda en su almacén seguro. */
-private object HiddenCrypto {
-    private const val ALIAS = "bloqueador_hidden_v1"
-    private const val PROVIDER = "AndroidKeyStore"
-    private const val IV_BYTES = 12
+/** Cifra listas de contactos con una llave (una por alias) que Android guarda en su almacén seguro. */
+internal class HiddenCrypto(private val alias: String) {
+    private companion object {
+        const val PROVIDER = "AndroidKeyStore"
+        const val IV_BYTES = 12
+    }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance(PROVIDER).apply { load(null) }
-        (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        (store.getKey(alias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
         generator.init(
-            KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
@@ -52,7 +53,7 @@ private object HiddenCrypto {
 
     fun deleteKey() {
         try {
-            KeyStore.getInstance(PROVIDER).apply { load(null) }.deleteEntry(ALIAS)
+            KeyStore.getInstance(PROVIDER).apply { load(null) }.deleteEntry(alias)
         } catch (_: Exception) { /* Si no existía, no hay nada que borrar. */ }
     }
 }
@@ -70,6 +71,7 @@ sealed class PinResult {
  */
 class HiddenStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("hidden_contacts", Context.MODE_PRIVATE)
+    private val crypto = HiddenCrypto("bloqueador_hidden_v1")
 
     fun hasPin() = prefs.contains("pin_hash")
 
@@ -122,7 +124,7 @@ class HiddenStore(context: Context) {
 
     fun contacts(): List<HiddenContact> {
         val blob = prefs.getString("data", null) ?: return emptyList()
-        val raw = HiddenCrypto.decrypt(blob) ?: return emptyList()
+        val raw = crypto.decrypt(blob) ?: return emptyList()
         return try {
             val array = JSONArray(raw)
             (0 until array.length()).map { i ->
@@ -148,7 +150,7 @@ class HiddenStore(context: Context) {
                     .put("id", c.contactId).put("lookup", c.lookupKey)
             )
         }
-        prefs.edit().putString("data", HiddenCrypto.encrypt(array.toString())).commit()
+        prefs.edit().putString("data", crypto.encrypt(array.toString())).commit()
     }
 
     fun hide(contact: HiddenContact) {
@@ -176,7 +178,7 @@ class HiddenStore(context: Context) {
     /** Borra el PIN, el bloqueo, la lista y la llave de cifrado. No toca la agenda ni los registros. */
     fun wipe() {
         prefs.edit().clear().commit()
-        HiddenCrypto.deleteKey()
+        crypto.deleteKey()
     }
 }
 

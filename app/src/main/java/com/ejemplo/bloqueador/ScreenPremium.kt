@@ -56,6 +56,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var viendoAsistente by rememberSaveable { mutableStateOf(false) }
     var viendoTemporal by rememberSaveable { mutableStateOf(false) }
     var viendoSpam by rememberSaveable { mutableStateOf(false) }
+    var viendoEntrada by rememberSaveable { mutableStateOf(false) }
     val now = currentProtectionTime()
 
     fun save(value: PremiumConfiguration) {
@@ -78,6 +79,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                 editing = null
             }
         )
+        return
+    }
+    if (viendoEntrada) {
+        PantallaEntradaNip(onCerrar = { viendoEntrada = false }, onChanged = onChanged)
         return
     }
     if (viendoSpam) {
@@ -118,6 +123,15 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos."
                     ) { viendoOcultos = true }
                     HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    // Con un NIP incorrecto esta fila no se muestra: así no se nota que la función existe.
+                    if (SesionEntrada.modo != ModoEntrada.FALSO) {
+                        FilaAccion(
+                            Icons.Filled.Lock,
+                            "NIP de entrada",
+                            "Pide un NIP al abrir la app. Con un NIP incorrecto se ocultan los contactos que elijas."
+                        ) { viendoEntrada = true }
+                        HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
                     FilaAccion(
                         Icons.Filled.Bookmark,
                         "Notas de números",

@@ -55,13 +55,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SesionEntrada.iniciar(this)
         if (savedInstanceState == null) smsRequest.value = SmsNavigation.parse(intent)
         SmsInboxQueue.enqueue(this)
         enableEdgeToEdge()
         setContent {
             TemaBloqueador {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    App(refresh.intValue, onChanged = { refresh.intValue++ }, smsRequest = smsRequest.value, onSmsConsumed = { smsRequest.value = null })
+                    // Con el NIP de entrada activo no se carga nada de la app hasta escribirlo.
+                    if (SesionEntrada.modo == ModoEntrada.BLOQUEADA) {
+                        PantallaNip(onEntrar = { refresh.intValue++ })
+                    } else {
+                        App(refresh.intValue, onChanged = { refresh.intValue++ }, smsRequest = smsRequest.value, onSmsConsumed = { smsRequest.value = null })
+                    }
                 }
             }
         }
@@ -72,6 +78,16 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         if (isFinishing) Anuncios.liberar()
         super.onDestroy()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        SesionEntrada.alVolver(this)
+    }
+
+    override fun onStop() {
+        SesionEntrada.alSalir()
+        super.onStop()
     }
 
     override fun onResume() {

@@ -56,16 +56,25 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
-    /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se muestran. */
-    fun blockedCalls(): List<BlockedCall> {
+    /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se guardan ni se muestran. */
+    private fun storedCalls(): List<BlockedCall> {
         val all = readArray(KEY_LOG).map { BlockedCall(it.getString("n"), it.getLong("t")) }
         val hidden = HiddenStore(appContext).hiddenKeys()
         return if (hidden.isEmpty()) all else all.filterNot { HiddenRules.isHiddenNumber(hidden, it.number) }
     }
 
+    /** Lo que se muestra: además esconde los contactos de una sesión con NIP de entrada incorrecto. */
+    fun blockedCalls(): List<BlockedCall> {
+        val all = storedCalls()
+        val extra = SesionEntrada.aOcultar()
+        if (extra.isEmpty()) return all
+        val keys = HiddenRules.keys(extra)
+        return all.filterNot { HiddenRules.isHiddenNumber(keys, it.number) }
+    }
+
     @Synchronized
     fun addBlocked(number: String, timestamp: Long) {
-        val list = listOf(BlockedCall(number, timestamp)) + blockedCalls()
+        val list = listOf(BlockedCall(number, timestamp)) + storedCalls()
         writeArray(KEY_LOG, list.take(MAX_LOG).map { JSONObject().put("n", it.number).put("t", it.timestamp) })
     }
 
@@ -74,7 +83,7 @@ class Prefs(context: Context) {
     /** Cuándo se bloqueó por última vez este número (null si nunca). */
     fun lastBlockedAt(number: String): Long? {
         val key = normalize(number)
-        return blockedCalls().filter { normalize(it.number) == key || it.number == number }
+        return storedCalls().filter { normalize(it.number) == key || it.number == number }
             .maxOfOrNull { it.timestamp }
     }
 
@@ -93,15 +102,22 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_SMS_BUSINESS, false)
         set(v) = sp.edit().putBoolean(KEY_SMS_BUSINESS, v).apply()
 
-    fun silencedSms(): List<SilencedSms> {
+    private fun storedSms(): List<SilencedSms> {
         val all = readArray(KEY_SMS_LOG).map { SilencedSms(it.getString("s"), it.optString("m"), it.getLong("t")) }
         val hidden = HiddenStore(appContext).contacts()
         return if (hidden.isEmpty()) all else all.filterNot { HiddenRules.matchesSender(hidden, it.sender) }
     }
 
+    /** Lo que se muestra: además esconde los contactos de una sesión con NIP de entrada incorrecto. */
+    fun silencedSms(): List<SilencedSms> {
+        val all = storedSms()
+        val extra = SesionEntrada.aOcultar()
+        return if (extra.isEmpty()) all else all.filterNot { HiddenRules.matchesSender(extra, it.sender) }
+    }
+
     @Synchronized
     fun addSilencedSms(sender: String, text: String, timestamp: Long) {
-        val current = silencedSms()
+        val current = storedSms()
         // Las apps de SMS actualizan la misma notificación varias veces: evitamos duplicados
         if (current.any { it.sender == sender && it.text == text && timestamp - it.timestamp < 60_000 }) return
         val list = listOf(SilencedSms(sender, text, timestamp)) + current

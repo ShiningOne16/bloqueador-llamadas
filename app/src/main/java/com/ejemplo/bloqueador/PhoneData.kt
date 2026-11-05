@@ -106,7 +106,7 @@ object PhoneData {
 
         // Los contactos ocultos no aparecen en el registro.
         if (!includeHidden) {
-            val ocultos = HiddenStore(context).hiddenKeys()
+            val ocultos = VistaOculta.claves(context)
             if (ocultos.isNotEmpty()) out.removeAll { HiddenRules.isHiddenNumber(ocultos, it.number) }
         }
 
@@ -187,7 +187,7 @@ object PhoneData {
         val origen = ContactStore.cuentasPorContacto(context)
         val todos = map.values.map { it.copy(cuentas = origen[it.id].orEmpty()) }
         // Los contactos ocultos no se muestran en ninguna lista de la app.
-        val ocultos = HiddenStore(context).contacts()
+        val ocultos = VistaOculta.contactos(context)
         if (ocultos.isEmpty()) return todos
         val claves = HiddenRules.keys(ocultos)
         return todos.filterNot { HiddenRules.isHiddenEntry(ocultos, claves, it.id, it.numbers) }
@@ -229,7 +229,7 @@ object PhoneData {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
         if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val threads = LinkedHashMap<Long, SmsThread>()
-        val ocultos = if (includeHidden) emptySet() else HiddenStore(context).hiddenKeys()
+        val ocultos = if (includeHidden) emptySet() else VistaOculta.claves(context)
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
             onlyIds?.let { "${Telephony.Sms.THREAD_ID} IN (${it.joinToString(",")})" }, null, "${Telephony.Sms.DATE} DESC"
@@ -260,7 +260,7 @@ object PhoneData {
     fun loadConversation(context: Context, threadId: Long, limit: Int = 500): List<SmsMsg> {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
         val out = ArrayList<SmsMsg>()
-        val ocultos = HiddenStore(context).hiddenKeys()
+        val ocultos = VistaOculta.claves(context)
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
             "${Telephony.Sms.THREAD_ID} = ?", arrayOf(threadId.toString()),

@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 fun PantallaTemporal(onCerrar: () -> Unit, onChanged: () -> Unit) {
     val context = LocalContext.current
     val store = remember { TemporalStore(context) }
-    val ocultos = remember { HiddenStore(context).hiddenKeys() }
+    val ocultos = remember { VistaOculta.claves(context) }
     var version by remember { mutableIntStateOf(0) }
     val minuto = currentProtectionTime() // se renueva cada minuto para que la cuenta regresiva avance
     val ahora = remember(minuto, version) { System.currentTimeMillis() }

@@ -43,7 +43,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 /** Evita capturas de pantalla y miniaturas en recientes mientras se ve esta sección. */
 @Composable
-private fun PantallaSegura() {
+internal fun PantallaSegura() {
     val context = LocalContext.current
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
@@ -129,7 +129,7 @@ fun PantallaOcultos(onCerrar: () -> Unit, onChanged: () -> Unit) {
 // -------------------------------------------------------------------------------------------
 
 @Composable
-private fun CampoPin(
+internal fun CampoPin(
     valor: String,
     onCambio: (String) -> Unit,
     etiqueta: String,
@@ -409,7 +409,7 @@ private fun Administrar(store: HiddenStore, onChanged: () -> Unit, onBloquear: (
 }
 
 @Composable
-private fun SelectorOculto(onCerrar: () -> Unit, onElegido: (ContactEntry) -> Unit) {
+internal fun SelectorOculto(onCerrar: () -> Unit, onElegido: (ContactEntry) -> Unit) {
     val context = LocalContext.current
     val permitido = remember { Contacts.hasPermission(context) }
     var contactos by remember { mutableStateOf<List<ContactEntry>?>(null) }
