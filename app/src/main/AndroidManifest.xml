@@ -51,6 +51,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:label="@string/launcher_label"
             android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>

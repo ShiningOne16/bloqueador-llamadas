@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Bloqueador</string>
+    <string name="app_name">Teléfono: Bloquea llamadas de Spam</string>
+    <!-- Nombre corto bajo el ícono del lanzador (el largo se corta) -->
+    <string name="launcher_label">Teléfono</string>
     <string name="hidden_number">Número oculto</string>
 </resources>
