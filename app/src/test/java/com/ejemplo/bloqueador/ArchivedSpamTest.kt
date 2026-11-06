@@ -114,23 +114,24 @@ class ArchivedSpamTest {
     }
 
     @Test fun rateLimitStopsRequestsButBlocksEveryEligibleNumberAndRetrySkipsSuccesses() = runBlocking {
-        val selected = plan(first, second, third)
+        val numbers = (0 until 212).map { "55${10000000 + it}" }
+        val selected = plan(*numbers.toTypedArray())
         var attempts = 0
         val result = ArchivedSpam.report(context, selected, CategoriaSpam.OTRO) {
             attempts++
-            Connection(it, if (attempts == 1) 200 else 429)
+            Connection(it, if (attempts <= 30) 200 else 429)
         }
-        assertEquals(2, attempts)
-        assertEquals(3, result.blocked)
-        assertEquals(1, result.sent)
-        assertEquals(2, result.pending)
+        assertEquals(31, attempts)
+        assertEquals(212, result.blocked)
+        assertEquals(30, result.sent)
+        assertEquals(182, result.pending)
         assertNotNull(result.error)
         for (number in selected.numbers) assertTrue(Prefs(context).manuallyBlocked(number))
         attempts = 0
         val retried = ArchivedSpam.report(context, selected, CategoriaSpam.OTRO) { attempts++; Connection(it, 200) }
-        assertEquals(2, attempts)
-        assertEquals(2, retried.sent)
-        assertEquals(1, retried.alreadyReported)
+        assertEquals(182, attempts)
+        assertEquals(182, retried.sent)
+        assertEquals(30, retried.alreadyReported)
         assertEquals(0, retried.pending)
     }
 

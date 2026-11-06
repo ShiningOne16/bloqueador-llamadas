@@ -115,6 +115,26 @@ test('el límite diario responde 429', async () => {
   assert.strictEqual(ultimo.status, 429);
 });
 
+test('el cupo ampliado permite completar 182 pendientes sin borrar los 30 reportes anteriores', async () => {
+  assert.strictEqual(MAX_REPORTES_POR_DIA, 500);
+  const { env, sqlite } = crearEntorno();
+  const instalacion = 'instalacion-importacion-1234';
+  const ip = '192.0.2.100';
+  for (let i = 0; i < 30; i++) {
+    assert.strictEqual((await reportar(env, { numero: `55${10000000 + i}`, instalacion, ip })).status, 200);
+  }
+  // El intento 31 había recibido 429 con la política anterior; conserva ese consumo del día.
+  sqlite.exec('UPDATE limites SET n = 31');
+  for (let i = 30; i < 212; i++) {
+    assert.strictEqual((await reportar(env, { numero: `55${10000000 + i}`, instalacion, ip })).status, 200);
+  }
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 212);
+  assert.strictEqual(sqlite.prepare("SELECT n FROM limites WHERE clave LIKE 'inst:%'").get().n, 213);
+  const repeated = await (await reportar(env, { numero: '5510000000', instalacion, ip })).json();
+  assert.strictEqual(repeated.ya, true);
+  assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 212);
+});
+
 test('la lista conserva el conteo y la categoría dominante de reportes distintos', async () => {
   const { env } = crearEntorno();
   for (let i = 0; i < 3; i++) await reportar(env, { numero: '5512345678', categoria: i === 0 ? 'ventas' : 'cobranza' });

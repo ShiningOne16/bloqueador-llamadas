@@ -2,7 +2,7 @@
 export const PEPPER = 'bloqueador-spam-v1:';
 export const CATEGORIAS = ['otro', 'cobranza', 'ventas', 'estafa', 'encuesta'];
 export const UMBRAL_REPORTES = 1;        // un reporte explícito basta para entrar en la lista
-export const MAX_REPORTES_POR_DIA = 30;  // por IP y por instalación
+export const MAX_REPORTES_POR_DIA = 500; // por IP y por instalación, incluidos los envíos desde el historial
 export const RETENCION_DIAS = 180;
 export const DIA_MS = 24 * 60 * 60 * 1000;
 export const VIGENCIA_LISTA_MS = 7 * DIA_MS;

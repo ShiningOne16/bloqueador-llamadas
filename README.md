@@ -204,7 +204,7 @@ Desde **Recientes → Archivadas → Enviar todas a spam** puedes revisar los n�
 llamadas archivadas y elegir una categoría antes de confirmar. Se excluyen privados, extranjeros,
 contactos ocultos, los ocultados por el NIP alternativo y los marcados «No es spam». Se envía cada número
 por separado, sin nombres, fechas ni historial. Los reportes confirmados no se vuelven a enviar.
-El bloqueo local se completa aunque falle la red o se alcancen los 30 intentos diarios; el resultado
+El bloqueo local se completa aunque falle la red o se alcancen los 500 intentos diarios; el resultado
 indica los pendientes y permite reintentarlos. **Detener** cancela los siguientes envíos; el que ya
 estaba en curso puede completarse. Las llamadas permanecen archivadas.
 
@@ -212,6 +212,12 @@ El mismo botón está en **Recientes → Bloqueadas → Enviar todas a spam**, c
 reintento de pendientes. Incluye todas las llamadas rechazadas o bloqueadas de ese filtro, también
 las antiguas, sin limitarse a la búsqueda actual. Las que ya están archivadas se gestionan desde
 Archivadas. No mezcla llamadas entrantes, salientes ni perdidas normales con los reportes de Bloqueadas.
+
+Desde 2.1.11, el servidor preparado permite 500 intentos diarios por red e instalación, para completar
+importaciones del historial. El límite sigue contando los intentos ya realizados y no elimina votos ni
+reinicia los contadores. Hace falta desplegar ese cambio del Worker: actualizar el APK por sí solo no
+amplía el cupo del servidor. Después puedes pulsar **Reintentar pendientes** incluso en el APK anterior;
+los reportes confirmados se omiten y solo se envían los que faltan.
 
 El umbral de un reporte requiere desplegar el Worker de esta versión. Las versiones anteriores de
 Android que exigían tres reportes también necesitan actualizarse. Tellows sigue desactivado y sus

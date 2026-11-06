@@ -95,12 +95,12 @@ Referencia del formato y parámetros: [documentación oficial](https://si.tellow
 ## Cómo funciona
 
 - `POST /reportar` `{numero, categoria, instalacion}`: solo números mexicanos; una red y una instalación
-  cuentan una vez por número. Máximo 30 intentos al día por red e instalación. Se rechazan lotes y campos
+  cuentan una vez por número. Máximo 500 intentos al día por red e instalación. Se rechazan lotes y campos
   adicionales (nombres, agendas, historiales, etc.). No prueba que cada instalación sea una persona distinta;
   las reinstalaciones y redes coordinadas siguen siendo una limitación de estos controles.
 - `POST /retirar` `{numero, instalacion}`: retira únicamente el voto de esa instalación y vuelve a publicar
   la lista. Es idempotente y admite reintentos tras fallos de publicación. Tiene un límite separado de
-  30 solicitudes al día por red e instalación, sin reiniciar los contadores de reportes.
+  500 solicitudes al día por red e instalación, sin reiniciar los contadores de reportes.
 - `GET /lista`: JSON `{v, generado, min, n:[[huella, categoria, reportes]]}` con los números con al menos un reporte explícito (`min: 1`). No implica confirmación de otros usuarios.
 - `GET /lista?fuentes=2`: añade Tellows cuando esté autorizado y configurado. Sus entradas son
   `[huella, 0, 0, "tellows", score]`; `tellows_hasta` indica su caducidad en milisegundos. El cero
@@ -141,7 +141,7 @@ reemplazar identificadores reales por los marcadores de `wrangler.toml` y sin ac
 ## Umbral de un reporte y llamadas archivadas (Android 2.1.9)
 
 La lista comunitaria admite un número desde el primer reporte. Se mantienen la deduplicación por red
-e instalación, los 30 intentos diarios y las caducidades. Tellows sigue desactivado; su mínimo de tres
+e instalación, los límites diarios y las caducidades. Tellows sigue desactivado; su mínimo de tres
 comentarios no cambia. Esta política requiere desplegar el Worker actualizado con D1/KV/SAL existentes.
 Tras el despliegue, el próximo cron vuelve a publicar con `min: 1` (hasta seis horas). Las apps anteriores
 que exigían tres reportes deben actualizarse para bloquear entradas con uno o dos reportes.
@@ -150,6 +150,15 @@ El botón de Archivadas revisa y confirma números únicos y una categoría. Emi
 a `/reportar`, nunca un lote JSON, una agenda o un historial. Respeta los números ocultos y «No es spam»;
 si no se puede descifrar la lista privada, impide el proceso. Al fallar una solicitud o recibir 429,
 detiene los siguientes envíos, conserva el bloqueo local y permite reintentar sin repetir los confirmados.
+
+## Cupo diario para importar el historial
+
+Desde Android 2.1.11, `MAX_REPORTES_POR_DIA` es 500 para permitir importaciones del historial.
+Para actualizar solo el cupo desde Chrome, en el código del Worker existente cambia
+`var MAX_REPORTES_POR_DIA = 30;` por `var MAX_REPORTES_POR_DIA = 500;` y pulsa Deploy.
+También puedes reemplazarlo por el archivo `dashboard/worker.js` actualizado. Conserva D1, KV, SAL,
+la programación y los reportes existentes. No se reinician contadores: las solicitudes anteriores del
+día siguen contando dentro del nuevo cupo. Después, **Reintentar pendientes** omite los ya confirmados.
 
 ## Pruebas
 

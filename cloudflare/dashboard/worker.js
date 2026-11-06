@@ -1,11 +1,11 @@
 // Generado con npm run build:dashboard. Pegar en el Worker existente.
-// source-sha256: 05ed417e2c4b3bb54adb861f2850e42aa02f2e102cfcd383c780c3bdba9a08aa
+// source-sha256: 443e22bfed8c4219c6c531733015f74fc1cd4bcbc916ac892c324c923474bf50
 
 // src/lib.js
 var PEPPER = "bloqueador-spam-v1:";
 var CATEGORIAS = ["otro", "cobranza", "ventas", "estafa", "encuesta"];
 var UMBRAL_REPORTES = 1;
-var MAX_REPORTES_POR_DIA = 30;
+var MAX_REPORTES_POR_DIA = 500;
 var RETENCION_DIAS = 180;
 var DIA_MS = 24 * 60 * 60 * 1e3;
 var VIGENCIA_LISTA_MS = 7 * DIA_MS;

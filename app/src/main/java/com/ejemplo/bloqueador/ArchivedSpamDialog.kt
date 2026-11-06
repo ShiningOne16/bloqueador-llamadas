@@ -83,7 +83,7 @@ fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: (
                                 }
                             }
                             Text("Al confirmar se bloquearán con el filtro de llamadas activo y se enviará cada número, su categoría y un identificador de instalación. El servidor recibe tu IP. No se envían nombres, fechas ni registros de llamadas. Un reporte basta para la lista comunitaria.")
-                            Text("Máximo 30 intentos diarios por red e instalación. Los números pendientes quedan bloqueados localmente y puedes reintentar. No se borran ni desarchivan llamadas.")
+                            Text("Máximo ${SpamRules.MAX_REPORTES_POR_DIA} intentos diarios por red e instalación con el servidor actualizado. Los números pendientes quedan bloqueados localmente y puedes reintentar. No se borran ni desarchivan llamadas.")
                         }
                     }
                 }

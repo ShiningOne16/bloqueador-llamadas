@@ -108,7 +108,7 @@ fun PantallaSpam(onCerrar: () -> Unit, onChanged: () -> Unit) {
                 "• La lista se descarga completa y se consulta en tu teléfono: el servidor nunca sabe quién te llama.\n" +
                     "• Tú eliges cada reporte. Solo se envían el número seleccionado de México, la categoría y un identificador aleatorio de instalación. No se suben tu agenda, historial, mensajes ni números ocultos.\n" +
                     "• El servidor recibe la IP y conserva huellas de la red y la instalación para limitar abusos. Las huellas no garantizan anonimato.\n" +
-                    "• Reportar bloquea el número en tu teléfono. Un reporte explícito basta para entrar en la lista comunitaria: no significa que otros usuarios lo hayan confirmado. Hay un máximo de 30 intentos diarios por red e instalación. Los reportes vencen a los 180 días y la copia comunitaria caduca tras 7 días sin actualizar.\n" +
+                    "• Reportar bloquea el número en tu teléfono. Un reporte explícito basta para entrar en la lista comunitaria: no significa que otros usuarios lo hayan confirmado. El servidor actualizado admite ${SpamRules.MAX_REPORTES_POR_DIA} intentos diarios por red e instalación. Los reportes vencen a los 180 días y la copia comunitaria caduca tras 7 días sin actualizar.\n" +
                     "• Tellows sigue pendiente. Si se activa, sus datos vencen en un máximo de 72 horas.\n" +
                     "• \"No es spam\" quita tu bloqueo manual, evita el bloqueo por la lista y permite retirar tu reporte. Otras reglas personales pueden seguir aplicándose. Tus contactos solo son excepciones locales.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant

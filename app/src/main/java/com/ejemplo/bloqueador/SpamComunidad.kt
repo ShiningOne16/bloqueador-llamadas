@@ -26,6 +26,7 @@ object SpamRules {
     private const val PEPPER = "bloqueador-spam-v1:"
     const val MAX_LISTA_BYTES = 8 * 1024 * 1024
     const val MIN_REPORTES = 1
+    const val MAX_REPORTES_POR_DIA = 500 // Debe coincidir con cloudflare/src/lib.js.
     const val VIGENCIA_LISTA_MS = 7 * 24 * 60 * 60 * 1000L
 
     /** Huella de 12 caracteres de los últimos 10 dígitos: la lista no guarda números legibles. */
