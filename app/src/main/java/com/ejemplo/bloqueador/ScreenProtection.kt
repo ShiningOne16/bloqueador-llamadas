@@ -6,19 +6,25 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PhoneDisabled
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -29,11 +35,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -81,44 +93,17 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
 
     val pedirRol = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { onChanged() }
 
+    val llamadasEf = llamadasActivo && (manualBlocks > 0 || profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK })
+    val smsEf = smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms))
+    val ocultosEf = llamadasActivo && (if (profile == null) ocultos else inSchedule && profile.blockHidden)
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = Esp.xl)
     ) {
         item { Titulo("Protección") }
 
-        item {
-            Resumen(
-                estado,
-                llamadasActivo && (manualBlocks > 0 || profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK }),
-                smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms)),
-                Modifier.padding(horizontal = Esp.l, vertical = Esp.s)
-            )
-        }
-
-        if (manualBlocks > 0) item {
-            Tarjeta(Modifier.padding(horizontal = Esp.l, vertical = Esp.s)) {
-                FilaAccion(Icons.Filled.Block, "Bloqueados manualmente", valor = manualBlocks.toString(), onClick = { manageManualBlocks = true })
-                Text("Estos bloqueos tienen prioridad sobre los perfiles. Puedes gestionarlos aquí aunque hayas borrado las llamadas.",
-                    Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-
-        if (profile != null) {
-            item {
-                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
-                    FilaAccion(Icons.Filled.Shield, "Perfil: ${profile.name}", valor = "Editar", onClick = abrirPremium)
-                    Text(
-                        scheduleDescription(profile.schedule) + "\n" +
-                            (if (inSchedule) "Dentro del horario." else "Fuera del horario: solo se aplican las excepciones de llamadas.") +
-                            " Los ajustes específicos se cambian en Premium.",
-                        modifier = Modifier.padding(start = Esp.l, end = Esp.l, bottom = Esp.l),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
+        item { Panel(estado, llamadasEf, ocultosEf, smsEf, Modifier.padding(horizontal = Esp.l, vertical = Esp.s)) }
 
         if (estado.faltan > 0) {
             item { Rotulo("Termina de configurar") }
@@ -149,6 +134,39 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                     if (!estado.accesoNotificaciones) {
                         AyudaRestringida()
                     }
+                }
+            }
+        }
+
+        item {
+            Row(
+                Modifier.padding(horizontal = Esp.l, vertical = Esp.s).height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Esp.m)
+            ) {
+                Dato(Icons.Filled.PhoneDisabled, llamadas.size, "Llamadas bloqueadas", Modifier.weight(1f).fillMaxHeight()) { verHistorial = 0 }
+                Dato(Icons.Filled.NotificationsOff, mensajes.size, "Mensajes silenciados", Modifier.weight(1f).fillMaxHeight()) { verHistorial = 1 }
+            }
+        }
+        if (manualBlocks > 0) item {
+            Tarjeta(Modifier.padding(horizontal = Esp.l, vertical = Esp.s)) {
+                FilaAccion(Icons.Filled.Block, "Bloqueados manualmente", valor = manualBlocks.toString(), onClick = { manageManualBlocks = true })
+                Text("Estos bloqueos tienen prioridad sobre los perfiles. Puedes gestionarlos aquí aunque hayas borrado las llamadas.",
+                    Modifier.padding(Esp.l), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        if (profile != null) {
+            item {
+                Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                    FilaAccion(Icons.Filled.Shield, "Perfil: ${profile.name}", valor = "Editar", onClick = abrirPremium)
+                    Text(
+                        scheduleDescription(profile.schedule) + "\n" +
+                            (if (inSchedule) "Dentro del horario." else "Fuera del horario: solo se aplican las excepciones de llamadas.") +
+                            " Los ajustes específicos se cambian en Premium.",
+                        modifier = Modifier.padding(start = Esp.l, end = Esp.l, bottom = Esp.l),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -191,21 +209,6 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                 ) { empresas = it; prefs.smsIncludeBusiness = it }
             }
         }
-
-        item { Rotulo("Actividad") }
-        item {
-            Tarjeta(Modifier.padding(horizontal = Esp.l)) {
-                FilaAccion(
-                    Icons.Filled.PhoneDisabled, "Llamadas bloqueadas",
-                    valor = llamadas.size.toString()
-                ) { verHistorial = 0 }
-                Separador()
-                FilaAccion(
-                    Icons.Filled.NotificationsOff, "Mensajes silenciados",
-                    valor = mensajes.size.toString()
-                ) { verHistorial = 1 }
-            }
-        }
     }
 
     if (manageManualBlocks) AlertDialog(onDismissRequest = { manageManualBlocks = false },
@@ -245,44 +248,124 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
 
 // -------------------------------------------------------------------------------------------
 
-/** Tarjeta grande que dice en una frase si estás protegido. */
+/**
+ * Panel de estado: un anillo de 3 capas (llamadas, ocultos, SMS) con el escudo al centro.
+ * El nivel solo cuenta capas realmente activas ahora mismo; no promete detener todo el spam.
+ */
 @Composable
-private fun Resumen(estado: EstadoConfig, llamadas: Boolean, sms: Boolean, modifier: Modifier) {
+private fun Panel(estado: EstadoConfig, llamadas: Boolean, ocultos: Boolean, sms: Boolean, modifier: Modifier) {
     val extra = LocalColoresExtra.current
     val cs = MaterialTheme.colorScheme
+    val capas = listOf(llamadas, ocultos, sms)
+    val activas = capas.count { it }
 
-    data class Vista(val icono: ImageVector, val fondo: Color, val texto: Color, val titulo: String, val detalle: String)
+    data class Vista(val icono: ImageVector, val fondo: Color, val texto: Color, val acento: Color, val titulo: String, val detalle: String)
 
     val v = when {
         estado.faltan > 0 -> Vista(
-            Icons.Filled.Warning, extra.aviso, extra.onAviso,
+            Icons.Filled.Warning, extra.aviso, extra.onAviso, extra.onAviso,
             "Falta poco",
             if (estado.faltan == 1) "Completa 1 paso para activar la protección."
             else "Completa ${estado.faltan} pasos para activar la protección."
         )
-        !llamadas && !sms -> Vista(
-            Icons.Filled.PauseCircle, cs.surfaceContainerHigh, cs.onSurface,
+        activas == 0 -> Vista(
+            Icons.Filled.PauseCircle, cs.surfaceContainerHigh, cs.onSurface, cs.outline,
             "Protección en pausa",
             "Activa los interruptores de abajo cuando quieras."
         )
         else -> Vista(
-            Icons.Filled.Shield, cs.tertiaryContainer, cs.onTertiaryContainer,
-            "Estás protegido",
-            "Llamadas: ${if (llamadas) "activado" else "en pausa"} · Mensajes: ${if (sms) "activado" else "en pausa"}"
+            Icons.Filled.Shield, cs.tertiaryContainer, cs.onTertiaryContainer, cs.tertiary,
+            when (activas) { 1 -> "Protección básica"; 2 -> "Protección media"; else -> "Protección alta" },
+            "$activas de 3 capas activas"
         )
     }
 
-    Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = v.fondo, contentColor = v.texto) {
-        Row(
-            Modifier.padding(Esp.l),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Esp.l)
+    Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, color = v.fondo, contentColor = v.texto) {
+        Column(
+            Modifier.padding(horizontal = Esp.l, vertical = Esp.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Esp.m)
         ) {
-            Icon(v.icono, contentDescription = null, modifier = Modifier.size(40.dp))
-            Column {
-                Text(v.titulo, style = MaterialTheme.typography.titleLarge)
-                Text(v.detalle, style = MaterialTheme.typography.bodyMedium)
+            AnilloCapas(capas, v.acento, v.texto.copy(alpha = 0.18f), v.icono, v.texto)
+            Text(v.titulo, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Text(v.detalle, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+            Row(Modifier.fillMaxWidth().padding(top = Esp.xs), horizontalArrangement = Arrangement.spacedBy(Esp.s)) {
+                CapaChip("Llamadas", llamadas, v.texto, Modifier.weight(1f))
+                CapaChip("Ocultos", ocultos, v.texto, Modifier.weight(1f))
+                CapaChip("SMS", sms, v.texto, Modifier.weight(1f))
             }
+        }
+    }
+}
+
+/** Tres arcos con huecos (uno por capa) alrededor del ícono de estado. */
+@Composable
+private fun AnilloCapas(capas: List<Boolean>, encendido: Color, apagado: Color, icono: ImageVector, tinte: Color) {
+    Box(Modifier.size(124.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val grosor = 10.dp.toPx()
+            val lado = size.minDimension - grosor
+            val hueco = 28f
+            val arco = (360f - hueco * capas.size) / capas.size
+            capas.forEachIndexed { i, activa ->
+                drawArc(
+                    color = if (activa) encendido else apagado,
+                    startAngle = -90f + hueco / 2 + i * (arco + hueco),
+                    sweepAngle = arco,
+                    useCenter = false,
+                    topLeft = Offset(grosor / 2, grosor / 2),
+                    size = Size(lado, lado),
+                    style = Stroke(width = grosor, cap = StrokeCap.Round)
+                )
+            }
+        }
+        Icon(icono, contentDescription = null, tint = tinte, modifier = Modifier.size(48.dp))
+    }
+}
+
+/** Píldora que dice si una capa está activa; el estado va en el ícono y en el texto, no solo en el color. */
+@Composable
+private fun CapaChip(nombre: String, activa: Boolean, color: Color, modifier: Modifier) {
+    Surface(
+        modifier,
+        shape = CircleShape,
+        color = color.copy(alpha = if (activa) 0.16f else 0.07f),
+        contentColor = color.copy(alpha = if (activa) 1f else 0.7f)
+    ) {
+        Row(
+            Modifier
+                .padding(horizontal = Esp.m, vertical = Esp.s)
+                .semantics(mergeDescendants = true) { contentDescription = "$nombre: ${if (activa) "activa" else "en pausa"}" },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Esp.xs, Alignment.CenterHorizontally)
+        ) {
+            Icon(if (activa) Icons.Filled.Check else Icons.Filled.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(nombre, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+    }
+}
+
+/** Contador tocable que abre el historial. */
+@Composable
+private fun Dato(icono: ImageVector, cantidad: Int, etiqueta: String, modifier: Modifier, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier,
+        shape = MaterialTheme.shapes.large,
+        color = cs.surfaceContainerLowest,
+        border = BorderStroke(1.dp, cs.outlineVariant)
+    ) {
+        Column(
+            Modifier.clickable(role = Role.Button, onClick = onClick).padding(Esp.l),
+            verticalArrangement = Arrangement.spacedBy(Esp.xs)
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconoCirculo(icono, cs.primaryContainer, cs.onPrimaryContainer, 36.dp)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = cs.onSurfaceVariant)
+            }
+            Text(cantidad.toString(), style = MaterialTheme.typography.headlineMedium, color = cs.onSurface)
+            Text(etiqueta, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
         }
     }
 }
