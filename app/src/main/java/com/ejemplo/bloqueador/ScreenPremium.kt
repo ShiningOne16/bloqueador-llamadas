@@ -140,6 +140,16 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                     )
                     Tarjeta {
                         FilaFuncion(
+                            Icons.Filled.PhoneDisabled, "Bloquear números desconocidos",
+                            if (configuration.activeProfile == null)
+                                "Rechaza llamadas de números que no están en tus contactos. Se aplica con Filtrar llamadas activado en Protección; respeta tus excepciones y permisos temporales."
+                            else "Rechaza números que no están en tus contactos durante el horario de ${configuration.activeProfile?.name}. Cambia esta opción del perfil seleccionado y respeta sus excepciones y permisos temporales.",
+                            abierta = funcionAbierta == "desconocidos", onAlternar = { alternar("desconocidos") }, onAbrir = {},
+                            interruptor = store.blockUnknown(configuration),
+                            onInterruptor = { configuration = store.setBlockUnknown(it); onChanged() }
+                        )
+                        DivisorFuncion()
+                        FilaFuncion(
                             Icons.Filled.VisibilityOff, "Contactos ocultos",
                             "Bloquea llamadas y mensajes de un contacto y escóndelo de la app. Protegido con un PIN de 4 dígitos.",
                             abierta = funcionAbierta == "ocultos", onAlternar = { alternar("ocultos") }, onAbrir = { viendoOcultos = true }
@@ -212,7 +222,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
             item {
                 val profile = configuration.activeProfile
                 Text(
-                    if (profile == null) "Usando protección básica"
+                    if (profile == null) "Sin perfil: usando tus ajustes generales y Premium"
                     else "Perfil seleccionado: ${profile.name} · ${if (profile.schedule.contains(now)) "dentro del horario" else "fuera del horario"}",
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -228,10 +238,10 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         ListItem(
                             modifier = Modifier.clickable(role = Role.DropdownList, onClickLabel = "Cambiar de perfil") { abierto = true },
                             overlineContent = { Text("Perfil") },
-                            headlineContent = { Text(activo?.name ?: "Protección básica", style = MaterialTheme.typography.titleMedium) },
+                            headlineContent = { Text(activo?.name ?: "Sin perfil", style = MaterialTheme.typography.titleMedium) },
                             supportingContent = {
                                 Text(
-                                    if (activo == null) "Usar los ajustes de la pestaña Protección" else resumenPerfil(activo),
+                                    if (activo == null) "Usar tus ajustes generales y Premium" else resumenPerfil(activo),
                                     maxLines = 2, overflow = TextOverflow.Ellipsis
                                 )
                             },
@@ -241,7 +251,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                         DropdownMenu(abierto, onDismissRequest = { abierto = false }, modifier = Modifier.widthIn(min = 280.dp)) {
-                            PerfilOpcion("Protección básica", "Usar los ajustes de la pestaña Protección", activo == null) {
+                            PerfilOpcion("Sin perfil", "Usar tus ajustes generales y Premium", activo == null) {
                                 abierto = false; save(configuration.copy(activeProfileId = null))
                             }
                             configuration.profiles.forEach { profile ->
@@ -286,7 +296,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     }
     deleting?.let { profile ->
         Confirmar("¿Eliminar ${profile.name}?",
-            if (configuration.activeProfileId == profile.id) "Se eliminarán sus horarios y excepciones. Volverás a la protección básica."
+            if (configuration.activeProfileId == profile.id) "Se eliminarán sus horarios y excepciones. Volverás a los ajustes sin perfil."
             else "Se eliminarán este perfil, sus horarios y sus excepciones.",
             "Eliminar", onConfirmar = {
                 save(configuration.copy(

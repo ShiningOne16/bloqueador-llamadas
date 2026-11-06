@@ -1,6 +1,7 @@
 # Bloqueador de llamadas (Android)
 
-App que rechaza automáticamente las llamadas de números que **no están en tus contactos**.
+App de teléfono con bloqueo de llamadas. **Bloquear números desconocidos** es una función de Premium,
+actualmente disponible en su vista previa gratuita, sin cobros implementados.
 Usa la API oficial de Android para filtrar llamadas (`CallScreeningService`), así que no necesita
 root ni quedarse abierta: Android le pregunta a la app antes de que suene cada llamada.
 
@@ -33,7 +34,8 @@ La pantalla de llamada en curso (contestar/colgar) sigue siendo la del sistema.
 
 ### Bloqueo
 
-- Rechaza llamadas de números que no están en tus contactos, sin que suene el teléfono.
+- **Premium → Bloquear números desconocidos:** rechaza llamadas de números que no están en tus contactos.
+  Protección conserva el interruptor general **Filtrar llamadas**, el bloqueo manual y el de privados.
 - Opcional: bloquea números ocultos o privados.
 - Opcional: si el mismo número vuelve a llamar en menos de 3 minutos, lo deja pasar (por si es una urgencia).
 - Muestra una lista de las llamadas bloqueadas.
@@ -103,6 +105,13 @@ de MMS según el operador. Las pruebas automatizadas no sustituyen esa validaci�
 
 La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes y Protección. Abre la **vista previa gratuita** de:
 
+- **Bloquear números desconocidos:** se activa o desactiva desde Premium. Sin perfil, usa el ajuste
+  general; con un perfil seleccionado, modifica su opción de desconocidos y respeta su horario.
+  Al actualizar se conserva la protección anterior: el ajuste sin perfil empieza activado y el
+  interruptor general de Protección conserva su estado. Apagar esta función permite desconocidos,
+  pero siguen aplicándose el bloqueo manual, spam, privados, concentración y otras reglas activas.
+  El asistente puede seguir atendiendo desconocidos sin perfil. No se exige una compra: el cobro
+  Premium todavía no está implementado.
 - **Esperar antes de llamar:** opción apagada por defecto. Al activarla, muestra una cuenta regresiva de
   1 a 10 segundos, ajustable desde Premium, con Cancelar y Llamar ya. La elección se guarda y empieza
   en 2 segundos hasta que la cambies. Salir de la actividad o destruirla cancela la llamada pendiente;

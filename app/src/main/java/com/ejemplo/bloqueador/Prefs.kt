@@ -30,6 +30,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ENABLED, true)
         set(v) = sp.edit().putBoolean(KEY_ENABLED, v).apply()
 
+    /** Premium: bloqueo de desconocidos sin perfil. Conserva el comportamiento anterior al actualizar. */
+    var blockUnknown: Boolean
+        get() = sp.getBoolean(KEY_BLOCK_UNKNOWN, true)
+        set(v) = sp.edit().putBoolean(KEY_BLOCK_UNKNOWN, v).apply()
+
     fun manuallyBlocked(number: String): Boolean = normalize(number).let {
         it.isNotEmpty() && it in sp.getStringSet("manual_blocks", emptySet()).orEmpty()
     }
@@ -43,7 +48,7 @@ class Prefs(context: Context) {
         sp.edit().putStringSet("manual_blocks", if (blocked) current + key else current - key).apply()
     }
 
-    /** Bloquear llamadas con número oculto / privado / desconocido. */
+    /** Bloquear llamadas privadas o sin número identificable. */
     var blockHidden: Boolean
         get() = sp.getBoolean(KEY_BLOCK_HIDDEN, true)
         set(v) = sp.edit().putBoolean(KEY_BLOCK_HIDDEN, v).apply()
@@ -157,6 +162,7 @@ class Prefs(context: Context) {
         private const val KEY_BIENVENIDA = "bienvenida_vista"
         private const val KEY_ULTIMA_CUENTA = "ultima_cuenta"
         private const val KEY_ENABLED = "enabled"
+        private const val KEY_BLOCK_UNKNOWN = "block_unknown"
         private const val KEY_BLOCK_HIDDEN = "block_hidden"
         private const val KEY_ALLOW_REPEAT = "allow_repeat"
         private const val KEY_DELAY_CALL = "delay_call"

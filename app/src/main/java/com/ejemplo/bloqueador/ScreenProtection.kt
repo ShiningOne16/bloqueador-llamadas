@@ -93,7 +93,9 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
 
     val pedirRol = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { onChanged() }
 
-    val llamadasEf = llamadasActivo && (manualBlocks > 0 || profile == null || (inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK })
+    val llamadasEf = llamadasActivo && (manualBlocks > 0 ||
+        (profile == null && (prefs.blockUnknown || ocultos || SpamStore(context).activo || AsistenteStore(context).activo)) ||
+        (profile != null && ((inSchedule && (profile.blockUnknown || profile.blockHidden || profile.scheduledContacts.isNotEmpty())) || profile.exceptions.any { it.action == NumberAction.BLOCK })))
     val smsEf = smsActivo && (profile == null || (inSchedule && profile.silenceUnknownSms))
     val ocultosEf = llamadasActivo && (if (profile == null) ocultos else inSchedule && profile.blockHidden)
 
@@ -175,10 +177,14 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
         item {
             Tarjeta(Modifier.padding(horizontal = Esp.l)) {
                 FilaInterruptor(
-                    Icons.Filled.PhoneDisabled, if (profile == null) "Bloquear desconocidos" else "Filtrar llamadas",
-                    if (profile == null) "Rechaza llamadas de números que no están en tus contactos."
-                    else "Activa o pausa todas las reglas y excepciones del perfil.", llamadasActivo
+                    Icons.Filled.PhoneDisabled, "Filtrar llamadas",
+                    "Activa o pausa los bloqueos manuales, privados, desconocidos y spam.", llamadasActivo
                 ) { llamadasActivo = it; prefs.enabled = it }
+                Separador()
+                FilaAccion(Icons.Filled.PhoneDisabled, "Bloquear desconocidos · Premium", valor = "Abrir", onClick = abrirPremium)
+                Text("El bloqueo de números que no están en tus contactos se configura en Premium.",
+                    Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Separador()
                 FilaInterruptor(
                     Icons.Filled.VisibilityOff, "Bloquear números ocultos",

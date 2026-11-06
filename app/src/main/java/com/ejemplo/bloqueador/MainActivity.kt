@@ -247,14 +247,14 @@ private fun Bienvenida(onContinuar: () -> Unit, onOmitir: () -> Unit) {
             modifier = Modifier.semantics { heading() }
         )
         Text(
-            "Tu teléfono, sin llamadas ni mensajes de desconocidos.",
+            "Tu teléfono, con el control de tus llamadas y mensajes.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
         Tarjeta(Modifier.padding(top = Esp.s)) {
-            Punto(Icons.Filled.PhoneDisabled, "Solo suenan tus contactos", "Las llamadas de números desconocidos se rechazan solas.")
+            Punto(Icons.Filled.PhoneDisabled, "Desconocidos · Premium", "Configura el bloqueo de llamadas de números que no están en tus contactos desde Premium.")
             Separador()
             Punto(Icons.Filled.NotificationsOff, "Mensajes en silencio", "Los SMS de desconocidos llegan, pero sin sonar ni avisar.")
             Separador()

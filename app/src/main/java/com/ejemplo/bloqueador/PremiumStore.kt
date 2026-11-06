@@ -7,6 +7,23 @@ import org.json.JSONObject
 /** Vista previa local. No representa ni verifica una compra o suscripción. */
 class PremiumStore(context: Context) {
     private val prefs = context.getSharedPreferences("premium_profiles", Context.MODE_PRIVATE)
+    private val ajustes = Prefs(context.applicationContext)
+
+    fun blockUnknown(configuration: PremiumConfiguration = read()): Boolean =
+        configuration.activeProfile?.blockUnknown ?: ajustes.blockUnknown
+
+    /** El interruptor de Premium modifica el perfil seleccionado o el ajuste sin perfil. */
+    fun setBlockUnknown(enabled: Boolean): PremiumConfiguration {
+        val configuration = read()
+        val active = configuration.activeProfile
+        if (active == null) {
+            ajustes.blockUnknown = enabled
+            return configuration
+        }
+        return configuration.copy(profiles = configuration.profiles.map {
+            if (it.id == active.id) it.copy(blockUnknown = enabled) else it
+        }).also { save(it) }
+    }
 
     fun read(): PremiumConfiguration {
         val raw = prefs.getString("configuration", null) ?: return PremiumConfiguration()
@@ -44,7 +61,7 @@ class PremiumStore(context: Context) {
             val active = root.optString("active").takeIf { id -> profiles.any { it.id == id } }
             PremiumConfiguration(profiles, active)
         } catch (_: Exception) {
-            PremiumConfiguration() // Si los datos están dañados, sigue vigente la protección básica.
+            PremiumConfiguration() // Si los datos están dañados, se usan los ajustes sin perfil.
         }
     }
 

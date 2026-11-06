@@ -12,7 +12,7 @@ import java.time.LocalDateTime
  * Decide si la llamada pasa o se rechaza en silencio.
  */
 /** Qué hacer con una llamada entrante. */
-private enum class Veredicto { PASAR, BLOQUEAR, ASISTIR }
+internal enum class Veredicto { PASAR, BLOQUEAR, ASISTIR }
 
 class BlockerService : CallScreeningService() {
 
@@ -41,7 +41,7 @@ class BlockerService : CallScreeningService() {
         }
     }
 
-    private fun decidir(details: Call.Details): Veredicto {
+    internal fun decidir(details: Call.Details): Veredicto {
         val prefs = Prefs(this)
         val number = details.handle?.schemeSpecificPart?.trim().orEmpty()
         val now = System.currentTimeMillis()
@@ -101,6 +101,10 @@ class BlockerService : CallScreeningService() {
         // a uno nuevo se le silencia y se le pide que se identifique, en lugar de rechazarlo.
         if (Asistente.yaAtendido(this, number)) return Veredicto.PASAR
         if (profile?.schedule?.contains(LocalDateTime.now()) != false && Asistente.atender(this, number)) return Veredicto.ASISTIR
+
+        // Sin perfil, el bloqueo de desconocidos se decide desde Premium. Las demás reglas
+        // (manuales, spam, privados, concentración y asistente) conservan su prioridad.
+        if (profile == null && !prefs.blockUnknown) return Veredicto.PASAR
 
         val last = prefs.lastBlockedAt(number)
 
