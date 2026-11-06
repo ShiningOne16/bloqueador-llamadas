@@ -56,6 +56,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
+    /** Espera 2 segundos (con "Cancelar") antes de marcar, por si se tocó por error. Encendido por defecto. */
+    var delayCall: Boolean
+        get() = sp.getBoolean(KEY_DELAY_CALL, true)
+        set(v) = sp.edit().putBoolean(KEY_DELAY_CALL, v).apply()
+
     /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se guardan ni se muestran. */
     private fun storedCalls(): List<BlockedCall> {
         val all = readArray(KEY_LOG).map { BlockedCall(it.getString("n"), it.getLong("t")) }
@@ -147,6 +152,7 @@ class Prefs(context: Context) {
         private const val KEY_ENABLED = "enabled"
         private const val KEY_BLOCK_HIDDEN = "block_hidden"
         private const val KEY_ALLOW_REPEAT = "allow_repeat"
+        private const val KEY_DELAY_CALL = "delay_call"
         private const val KEY_LOG = "log"
         private const val KEY_SMS_ENABLED = "sms_enabled"
         private const val KEY_SMS_BUSINESS = "sms_business"

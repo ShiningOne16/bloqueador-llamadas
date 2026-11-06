@@ -335,7 +335,13 @@ object Acciones {
         true
     } catch (_: Exception) { false }
 
+    /** Pide marcar: si la espera está activa, antes sale la cuenta regresiva con "Cancelar". */
     fun llamar(context: Context, number: String) {
+        if (number.isBlank()) return
+        if (Prefs(context).delayCall) RetrasoLlamada.pedir(number) else llamarYa(context, number)
+    }
+
+    fun llamarYa(context: Context, number: String) {
         if (number.isBlank()) return
         val uri = Uri.fromParts("tel", number, null)
         val action = if (PhoneData.has(context, Manifest.permission.CALL_PHONE)) Intent.ACTION_CALL else Intent.ACTION_DIAL

@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
                         PantallaNip(onEntrar = { refresh.intValue++ })
                     } else {
                         App(refresh.intValue, onChanged = { refresh.intValue++ }, smsRequest = smsRequest.value, onSmsConsumed = { smsRequest.value = null })
+                        AvisoLlamada()
                     }
                 }
             }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.PhoneDisabled
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Circle
@@ -86,6 +87,7 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
     var insisten by remember { mutableStateOf(prefs.allowRepeat) }
     var smsActivo by remember { mutableStateOf(prefs.smsEnabled) }
     var empresas by remember { mutableStateOf(prefs.smsIncludeBusiness) }
+    var esperar by remember { mutableStateOf(prefs.delayCall) }
 
     val llamadas = remember(refreshKey) { prefs.blockedCalls() }
     val mensajes = remember(refreshKey) { prefs.silencedSms() }
@@ -190,6 +192,16 @@ fun PantallaProteccion(refreshKey: Int, onChanged: () -> Unit, pedirPermisos: ()
                     "Si cuelgan y vuelven a marcar en menos de 3 minutos, sonará. Útil para urgencias.",
                     profile?.allowRepeat ?: insisten, habilitado = llamadasActivo && profile == null
                 ) { insisten = it; prefs.allowRepeat = it }
+            }
+        }
+
+        item { Rotulo("Al marcar") }
+        item {
+            Tarjeta(Modifier.padding(horizontal = Esp.l)) {
+                FilaInterruptor(
+                    Icons.Filled.Timer, "Esperar 2 segundos",
+                    "Antes de llamar sale una cuenta regresiva con Cancelar, por si marcaste por error.", esperar
+                ) { esperar = it; prefs.delayCall = it }
             }
         }
 
