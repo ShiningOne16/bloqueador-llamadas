@@ -56,9 +56,9 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
-    /** Espera 2 segundos (con "Cancelar") antes de marcar, por si se tocó por error. Encendido por defecto. */
+    /** Función Premium: espera 2 segundos (con "Cancelar") antes de marcar. Apagado por defecto. */
     var delayCall: Boolean
-        get() = sp.getBoolean(KEY_DELAY_CALL, true)
+        get() = sp.getBoolean(KEY_DELAY_CALL, false)
         set(v) = sp.edit().putBoolean(KEY_DELAY_CALL, v).apply()
 
     /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se guardan ni se muestran. */

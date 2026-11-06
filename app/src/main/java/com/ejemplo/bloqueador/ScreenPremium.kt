@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -63,6 +64,8 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var viendoTemporal by rememberSaveable { mutableStateOf(false) }
     var viendoSpam by rememberSaveable { mutableStateOf(false) }
     var viendoEntrada by rememberSaveable { mutableStateOf(false) }
+    val prefsLlamada = remember { Prefs(context) }
+    var esperarLlamada by remember { mutableStateOf(prefsLlamada.delayCall) }
     // Una sola función abierta a la vez en la lista.
     var funcionAbierta by rememberSaveable { mutableStateOf<String?>(null) }
     fun alternar(id: String) { funcionAbierta = if (funcionAbierta == id) null else id }
@@ -170,6 +173,14 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                             Icons.Filled.Report, "Lista de spam",
                             "Bloquea los números que la comunidad reporta como spam y reporta los tuyos.",
                             abierta = funcionAbierta == "spam", onAlternar = { alternar("spam") }, onAbrir = { viendoSpam = true }
+                        )
+                        DivisorFuncion()
+                        FilaFuncion(
+                            Icons.Filled.Timer, "Esperar antes de llamar",
+                            "Antes de marcar sale una cuenta regresiva de 2 segundos con Cancelar, por si tocaste Llamar por error.",
+                            abierta = funcionAbierta == "espera", onAlternar = { alternar("espera") }, onAbrir = {},
+                            interruptor = esperarLlamada,
+                            onInterruptor = { esperarLlamada = it; prefsLlamada.delayCall = it }
                         )
                     }
                 }
@@ -531,7 +542,10 @@ private fun FilaFuncion(
     detalle: String,
     abierta: Boolean,
     onAlternar: () -> Unit,
-    onAbrir: () -> Unit
+    onAbrir: () -> Unit,
+    /** Si no es null, la función se enciende aquí mismo con un interruptor en vez del botón "Abrir". */
+    interruptor: Boolean? = null,
+    onInterruptor: (Boolean) -> Unit = {}
 ) {
     val giro by animateFloatAsState(if (abierta) 180f else 0f, label = "giroFlecha")
     Column(Modifier.fillMaxWidth()) {
@@ -544,7 +558,10 @@ private fun FilaFuncion(
             horizontalArrangement = Arrangement.spacedBy(Esp.l)
         ) {
             Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(titulo, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(titulo, style = MaterialTheme.typography.bodyLarge)
+                if (interruptor == true) Text("Activado", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
             Box(
                 Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
@@ -561,7 +578,18 @@ private fun FilaFuncion(
                 verticalArrangement = Arrangement.spacedBy(Esp.m)
             ) {
                 Text(detalle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FilledTonalButton(onClick = onAbrir, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abrir") }
+                if (interruptor == null) {
+                    FilledTonalButton(onClick = onAbrir, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abrir") }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .toggleable(value = interruptor, role = Role.Switch, onValueChange = onInterruptor),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Activar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Switch(checked = interruptor, onCheckedChange = null)
+                    }
+                }
             }
         }
     }
