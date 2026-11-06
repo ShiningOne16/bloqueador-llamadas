@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(RetrasoLlamada)
         SesionEntrada.iniciar(this)
         if (savedInstanceState == null) smsRequest.value = SmsNavigation.parse(intent)
         SmsInboxQueue.enqueue(this)

@@ -16,7 +16,7 @@ otra vez también cierra el teclado. Cada vista conserva su búsqueda, filtros y
 - **Favoritos:** acceso separado a los contactos marcados como favoritos, con búsqueda y filtro por origen.
 - **Marcar:** marcador con sugerencias de contactos mientras escribes. Mantén el 0 para "+", mantén ⌫ para borrar todo.
 - **Mensajes:** buscador en píldora como el de Contactos, por nombre, número o contenido de SMS (también antiguos,
-  sin importar acentos), dentro del filtro elegido. La búsqueda se realiza en el teléfono y excluye contactos ocultos.
+  sin importar acentos), dentro del filtro elegido y sin limitarse a los últimos 4.000 SMS. La búsqueda se realiza en el teléfono y excluye contactos ocultos.
   SMS por conversación, redacción y respuestas dentro de Bloqueador, borradores, elección de SIM,
   estado de envío y filtros. Si eliges Bloqueador como app predeterminada, recibe, guarda y elimina SMS.
   **Multimedia recibida** permite descargar y abrir el texto y los adjuntos de MMS.
@@ -103,6 +103,9 @@ de MMS según el operador. Las pruebas automatizadas no sustituyen esa validaci�
 
 La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes y Protección. Abre la **vista previa gratuita** de:
 
+- **Esperar antes de llamar:** opción apagada por defecto. Al activarla, muestra una cuenta regresiva de
+  2 segundos con Cancelar y Llamar ya. Salir de la actividad o destruirla cancela la llamada pendiente;
+  volver a abrir la app no vuelve a marcar por esa pulsación.
 - **Horarios de protección:** elige días de la semana y horas de inicio y fin para llamadas y SMS.
   Se usa la hora local del teléfono. Un turno nocturno continúa al día siguiente: lunes 22:00–07:00
   incluye el martes hasta las 07:00. Horas iguales significan las 24 horas del día seleccionado.
@@ -184,7 +187,8 @@ El bloqueo personal funciona aunque falle el envío. La lista comunitaria exige 
 redes distintas, con límites diarios; no es una verificación de identidad de tres personas. Los reportes
 caducan a los 180 días y esta versión deja de usar una copia comunitaria tras 7 días sin actualizarla.
 **No es spam** quita el bloqueo manual, evita el bloqueo por la lista e intenta retirar tu voto. Puedes
-reintentar si falla el servidor; otras reglas personales siguen aplicándose.
+reintentar si falla el servidor, incluso si el envío original quedó sin confirmar por una respuesta
+perdida. Otras reglas personales siguen aplicándose.
 
 ## Cómo obtener el APK
 

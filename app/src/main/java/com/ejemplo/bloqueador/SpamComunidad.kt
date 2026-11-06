@@ -190,7 +190,18 @@ class SpamStore(context: Context) {
         if (h.isNotEmpty()) prefs.edit().putStringSet("reported", conjunto("reported") + h).apply()
     }
     fun retirarReportado(numero: String) {
-        prefs.edit().putStringSet("reported", conjunto("reported") - SpamRules.huella(numero)).apply()
+        val h = SpamRules.huella(numero)
+        prefs.edit().putStringSet("reported", conjunto("reported") - h)
+            .putStringSet("pending_reports", conjunto("pending_reports") - h).apply()
+    }
+    /** Un envío sin respuesta también puede haber quedado guardado en el servidor. */
+    fun reportePorRetirar(numero: String) = reportado(numero) || tieneReporteLocal(numero) ||
+        SpamRules.huella(numero).let { it.isNotEmpty() && it in conjunto("pending_reports") }
+
+    /** Se guarda antes de abrir la conexión, para sobrevivir a un cierre o una respuesta perdida. */
+    fun prepararEnvio(numero: String): Boolean {
+        val h = SpamRules.huella(numero)
+        return h.isNotEmpty() && prefs.edit().putStringSet("pending_reports", conjunto("pending_reports") + h).commit()
     }
     val totalReportados: Int get() = conjunto("reported").size
     fun tieneReporteLocal(numero: String) = SpamRules.huella(numero) in conjunto("local_reports")
@@ -205,7 +216,11 @@ class SpamStore(context: Context) {
         val h = SpamRules.huella(numero)
         if (h.isEmpty()) return
         val editor = prefs.edit().putStringSet("allowed", if (permitir) conjunto("allowed") + h else conjunto("allowed") - h)
-        if (permitir) editor.putStringSet("local_reports", conjunto("local_reports") - h)
+        if (permitir) {
+            // Migra también intentos de versiones anteriores, que solo guardaban local_reports.
+            if (tieneReporteLocal(numero)) editor.putStringSet("pending_reports", conjunto("pending_reports") + h)
+            editor.putStringSet("local_reports", conjunto("local_reports") - h)
+        }
         editor.apply()
     }
 }
@@ -238,12 +253,14 @@ object SpamComunidad {
         val base = servidor(context) ?: return "Los reportes todavía no están configurados en esta versión."
         val store = SpamStore(context)
         if (store.reportado(numero)) return null
+        val instalacion = store.instalacion
+        if (!store.prepararEnvio(numero)) return "No se pudo guardar el intento. No se envió el reporte; puedes reintentarlo."
         val fallo = "No se pudo enviar el reporte. Revisa tu conexión e inténtalo de nuevo."
         return try {
             val cuerpo = JSONObject()
                 .put("numero", numero)
                 .put("categoria", categoria.codigo)
-                .put("instalacion", store.instalacion)
+                .put("instalacion", instalacion)
             val conexion = conectar(URL("$base/reportar"))
             try {
                 conexion.requestMethod = "POST"
@@ -275,7 +292,7 @@ object SpamComunidad {
         conectar: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }): String? {
         errorReporte(context, numero)?.let { return it }
         val store = SpamStore(context)
-        if (!store.reportado(numero)) return null
+        if (!store.reportePorRetirar(numero)) return null
         val base = servidor(context) ?: return "El servidor de reportes no está configurado."
         return try {
             val conexion = conectar(URL("$base/retirar"))

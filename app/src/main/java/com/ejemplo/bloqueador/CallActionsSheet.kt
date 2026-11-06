@@ -59,6 +59,7 @@ fun HojaNumero(
     var editandoNota by remember { mutableStateOf(false) }
     val spamStore = remember { SpamStore(context) }
     var reportado by remember(numero) { mutableStateOf(spamStore.reportado(numero)) }
+    var reportePorRetirar by remember(numero) { mutableStateOf(spamStore.reportePorRetirar(numero)) }
     var reporteLocal by remember(numero) { mutableStateOf(spamStore.tieneReporteLocal(numero)) }
     var permitidoSpam by remember(numero) { mutableStateOf(spamStore.permitido(numero)) }
     val enLista = remember(numero) { SpamLista.categoria(context, numero) }
@@ -72,6 +73,7 @@ fun HojaNumero(
             try {
                 val error = withContext(Dispatchers.IO) { SpamComunidad.retirar(context, numero) }
                 reportado = spamStore.reportado(numero)
+                reportePorRetirar = spamStore.reportePorRetirar(numero)
                 Toast.makeText(context, error ?: "Tu reporte se retiró. No es spam en este teléfono.", Toast.LENGTH_LONG).show()
             } catch (e: CancellationException) { throw e
             } finally { reportando = false }
@@ -154,14 +156,15 @@ fun HojaNumero(
                         )
                         HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    if (enLista != null || reportado || reporteLocal || permitidoSpam) {
+                    if (enLista != null || reportePorRetirar || reporteLocal || permitidoSpam) {
                         ListItem(
                             modifier = Modifier.clickable(enabled = !reportando, role = Role.Switch) {
-                                permitidoSpam = !permitidoSpam; spamStore.permitir(numero, permitidoSpam)
+                                permitidoSpam = !permitidoSpam
                                 if (permitidoSpam) {
                                     SpamComunidad.noEsSpamLocal(context, numero); blocked = false; reporteLocal = false
-                                    if (reportado) retirarMiReporte()
-                                }
+                                    reportePorRetirar = spamStore.reportePorRetirar(numero)
+                                    if (reportePorRetirar) retirarMiReporte()
+                                } else spamStore.permitir(numero, false)
                             },
                             headlineContent = { Text("No es spam") },
                             supportingContent = { Text("Quita tu bloqueo manual y evita el bloqueo por la lista. Otras reglas personales siguen aplicándose.") },
@@ -170,7 +173,7 @@ fun HojaNumero(
                         )
                         HorizontalDivider(Modifier.padding(horizontal = Esp.l), color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    if (reportado && permitidoSpam) {
+                    if (reportePorRetirar && permitidoSpam) {
                         TextButton(enabled = !reportando, onClick = { retirarMiReporte() }) { Text("Reintentar retirar mi reporte") }
                     }
                     ListItem(
@@ -225,6 +228,7 @@ fun HojaNumero(
                         prefs.setManualBlock(numero, true); blocked = true
                         spamStore.permitir(numero, false); permitidoSpam = false
                         spamStore.marcarReporteLocal(numero); reporteLocal = true
+                        reportePorRetirar = true
                         val error = withContext(Dispatchers.IO) { SpamComunidad.reportar(context, numero, categoria) }
                         reportado = spamStore.reportado(numero)
                         Toast.makeText(context, error?.let { "Número bloqueado en tu teléfono. $it" }

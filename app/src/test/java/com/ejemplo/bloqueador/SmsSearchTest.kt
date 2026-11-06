@@ -34,7 +34,7 @@ class SmsSearchTest {
 
     private fun add(id: Long, thread: Long, body: String) {
         provider.insert(Telephony.Sms.CONTENT_URI, ContentValues().apply {
-            put("_id", id); put("thread_id", thread); put("address", "5512345678"); put("body", body)
+            put("_id", id); put("thread_id", thread); put("address", "5512345678"); put("body", body); put("date", id)
         })
     }
 
@@ -54,6 +54,19 @@ class SmsSearchTest {
         add(5, 30, "Sin coincidencias")
         assertEquals(setOf(10L), PhoneData.searchSmsThreads(context, " codigo ", setOf(10L, 30L)))
         assertEquals(emptySet<Long>(), PhoneData.searchSmsThreads(context, "inexistente", setOf(10L, 30L)))
+    }
+
+    @Test fun conversationOlderThanFourThousandMessagesIsStillSearchable() = runBlocking {
+        add(1, 10, "Tu código antiguo")
+        for (id in 2L..4002L) add(id, 20, "Mensaje reciente")
+
+        val threads = PhoneData.loadThreads(context, mapOf("5512345678" to "José"))
+        assertEquals(listOf(20L, 10L), threads.map { it.threadId })
+        assertEquals(4001, threads.first().count)
+        assertEquals("José", threads.last().name)
+        assertEquals(setOf(10L), PhoneData.searchSmsThreads(context, "codigo", threads.map { it.threadId }.toSet()))
+        // El filtro de archivadas conserva su alcance aunque la conversación sea antigua.
+        assertEquals(listOf(10L), PhoneData.loadThreads(context, emptyMap(), onlyIds = setOf(10L)).map { it.threadId })
     }
 
     @Test fun treatsWildcardCharactersAsLiteralText() = runBlocking {
@@ -81,6 +94,7 @@ class SmsSearchTest {
         add(1, 10, "Contenido privado")
         SesionEntrada.entrarFalso(listOf(HiddenContact("Privado", listOf("5512345678"))))
         try {
+            assertTrue(PhoneData.loadThreads(context, emptyMap()).isEmpty())
             assertEquals(emptySet<Long>(), PhoneData.searchSmsThreads(context, "privado", setOf(10L)))
         } finally { SesionEntrada.abrirNormal() }
     }
@@ -88,7 +102,7 @@ class SmsSearchTest {
 
 class SearchSmsProvider : ContentProvider() {
     private val db = SQLiteDatabase.create(null).apply {
-        execSQL("CREATE TABLE sms(_id INTEGER PRIMARY KEY, thread_id INTEGER, address TEXT, body TEXT)")
+        execSQL("CREATE TABLE sms(_id INTEGER PRIMARY KEY, thread_id INTEGER, address TEXT, body TEXT, date INTEGER DEFAULT 0, type INTEGER DEFAULT 1, read INTEGER DEFAULT 1, sub_id INTEGER DEFAULT -1)")
     }
     override fun onCreate() = true
     override fun getType(uri: Uri) = "vnd.android.cursor.dir/sms"

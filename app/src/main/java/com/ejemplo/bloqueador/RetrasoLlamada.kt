@@ -21,10 +21,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlin.math.ceil
 
 /** Espera corta antes de marcar, para poder cancelar una llamada hecha por error. */
-object RetrasoLlamada {
+object RetrasoLlamada : DefaultLifecycleObserver {
     const val ESPERA_MS = 2000
 
     /** Número que se va a marcar cuando termine la espera; null si no hay ninguna pendiente. */
@@ -38,6 +40,10 @@ object RetrasoLlamada {
     fun cancelar() {
         pendiente = null
     }
+
+    // Una llamada requiere mantener la app visible; nunca se recupera al volver a entrar.
+    override fun onStop(owner: LifecycleOwner) = cancelar()
+    override fun onDestroy(owner: LifecycleOwner) = cancelar()
 }
 
 /** Cuenta regresiva de 2 s con "Cancelar". Va una sola vez en la raíz de la app. */
@@ -49,8 +55,11 @@ fun AvisoLlamada() {
 
     LaunchedEffect(numero) {
         progreso.animateTo(1f, tween(RetrasoLlamada.ESPERA_MS, easing = LinearEasing))
-        RetrasoLlamada.cancelar()
-        Acciones.llamarYa(context, numero)
+        // El ciclo de vida puede cancelar antes de que Compose retire este efecto.
+        if (RetrasoLlamada.pendiente == numero) {
+            RetrasoLlamada.cancelar()
+            Acciones.llamarYa(context, numero)
+        }
     }
 
     val segundos = ceil((1f - progreso.value) * RetrasoLlamada.ESPERA_MS / 1000f).toInt().coerceAtLeast(1)

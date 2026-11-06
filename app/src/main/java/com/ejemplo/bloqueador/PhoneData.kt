@@ -227,7 +227,8 @@ object PhoneData {
         subscriptionId = c.getInt(7)
     )
 
-    fun loadThreads(context: Context, names: Map<String, String>, maxRows: Int = 4000, onlyIds: Set<Long>? = null, includeHidden: Boolean = false): List<SmsThread> {
+    /** Resume todos los SMS: un límite de filas dejaría conversaciones antiguas fuera del buscador. */
+    fun loadThreads(context: Context, names: Map<String, String>, onlyIds: Set<Long>? = null, includeHidden: Boolean = false): List<SmsThread> {
         if (!has(context, Manifest.permission.READ_SMS)) return emptyList()
         if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val threads = LinkedHashMap<Long, SmsThread>()
@@ -236,8 +237,7 @@ object PhoneData {
             Telephony.Sms.CONTENT_URI, SMS_PROJECTION,
             onlyIds?.let { "${Telephony.Sms.THREAD_ID} IN (${it.joinToString(",")})" }, null, "${Telephony.Sms.DATE} DESC"
         )?.use { c ->
-            var rows = 0
-            while (c.moveToNext() && (onlyIds != null || rows++ < maxRows)) {
+            while (c.moveToNext()) {
                 val msg = readSms(c)
                 if (ocultos.isNotEmpty() && HiddenRules.isHiddenNumber(ocultos, msg.address)) continue
                 val unread = if (msg.incoming && !msg.read) 1 else 0

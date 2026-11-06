@@ -3,6 +3,7 @@ package com.ejemplo.bloqueador
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.SocketTimeoutException
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -90,5 +91,42 @@ class SpamReportesTest {
     @Test fun choosingNoSpamWithoutAReportDoesNotContactTheServer() {
         SpamComunidad.noEsSpamLocal(context, numero)
         assertNull(SpamComunidad.retirar(context, numero) { error("No hay voto que retirar") })
+    }
+
+    @Test fun lostReportResponseCanBeWithdrawnAfterReopeningTheStore() {
+        val lostResponse = object : HttpURLConnection(URL("https://test.invalid/reportar")) {
+            val body = ByteArrayOutputStream()
+            override fun getOutputStream() = body
+            override fun getResponseCode(): Int = throw SocketTimeoutException("El servidor guardó el voto, pero se perdió la respuesta")
+            override fun disconnect() = Unit
+            override fun usingProxy() = false
+            override fun connect() = Unit
+        }
+        assertNotNull(SpamComunidad.reportar(context, numero, CategoriaSpam.ESTAFA) { lostResponse })
+        val sent = JSONObject(lostResponse.body.toString("UTF-8"))
+        assertFalse(SpamStore(context).reportado(numero))
+
+        SpamComunidad.noEsSpamLocal(context, numero)
+        assertFalse(SpamStore(context).tieneReporteLocal(numero))
+        assertTrue(SpamStore(context).reportePorRetirar(numero))
+        assertNotNull(SpamComunidad.retirar(context, numero) { Connection(it, 503) })
+        assertTrue(SpamStore(context).reportePorRetirar(numero))
+        assertTrue(SpamStore(context).permitido(numero))
+        assertFalse(Prefs(context).manuallyBlocked(numero))
+
+        val withdrawal = Connection(URL("https://test.invalid/retirar"), 200)
+        assertNull(SpamComunidad.retirar(context, numero) { withdrawal })
+        assertEquals(sent.getString("instalacion"), JSONObject(withdrawal.body.toString("UTF-8")).getString("instalacion"))
+        assertFalse(SpamStore(context).reportePorRetirar(numero))
+        assertNull(SpamComunidad.retirar(context, numero) { error("El voto ya se retiró") })
+    }
+
+    @Test fun legacyFailedReportCanBeWithdrawnAfterLocalCorrection() {
+        // Las versiones anteriores no guardaban pending_reports.
+        SpamStore(context).marcarReporteLocal(numero)
+        SpamComunidad.noEsSpamLocal(context, numero)
+        assertTrue(SpamStore(context).reportePorRetirar(numero))
+        assertNull(SpamComunidad.retirar(context, numero) { Connection(it, 200) })
+        assertFalse(SpamStore(context).reportePorRetirar(numero))
     }
 }

@@ -102,6 +102,11 @@ privada no puede descifrarse, no se autoriza el envío.
 enviado, intenta retirarlo; un fallo de red no deshace la corrección local y se ofrece un botón para
 reintentar. Los horarios, concentración y otras reglas personales siguen aplicándose.
 
+Desde Android 2.1.6, la app guarda también los intentos sin confirmación antes de abrir la conexión.
+Si el servidor guardó el voto pero se perdió la respuesta, **No es spam** permite retirarlo igualmente.
+El estado pendiente se conserva después de la corrección local y de los fallos de retirada, hasta que
+el servidor confirma el borrado. También se recuperan los intentos locales guardados por versiones anteriores.
+
 Este cambio requiere desplegar el Worker actualizado para habilitar `/retirar`; un servidor anterior
 seguirá aceptando los reportes normales y la corrección local funcionará, pero retirar el voto dará un
 error recuperable hasta el despliegue. No hay cambios de esquema. Usa D1, KV y SAL existentes, sin
