@@ -8,6 +8,15 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
+enum class SpamCallSource(val label: String) {
+    ARCHIVED("archivadas"), BLOCKED("bloqueadas");
+
+    fun contains(call: CallEntry, archivedKeys: Set<String>): Boolean = when (this) {
+        ARCHIVED -> call.archiveKey() in archivedKeys
+        BLOCKED -> call.isBlockedLike && call.archiveKey() !in archivedKeys
+    }
+}
+
 data class ArchivedSpamPlan(val numbers: List<String>, val omitted: Int)
 data class ArchivedSpamResult(
     val blocked: Int, val sent: Int, val alreadyReported: Int,
@@ -16,14 +25,15 @@ data class ArchivedSpamResult(
 
 /** Solo los números revisados en la confirmación; nunca transmite registros, nombres ni fechas. */
 object ArchivedSpam {
-    fun prepare(context: Context, calls: List<CallEntry>, archivedKeys: Set<String>): ArchivedSpamPlan {
+    fun prepare(context: Context, calls: List<CallEntry>, archivedKeys: Set<String>,
+        source: SpamCallSource = SpamCallSource.ARCHIVED): ArchivedSpamPlan {
         // Un fallo de descifrado impide preparar cualquier envío, igual que en el reporte individual.
         val hidden = HiddenStore(context).contactsForReporting() + SesionEntrada.aOcultar()
         val store = SpamStore(context)
         val numbers = linkedSetOf<String>()
         var omitted = 0
         for (call in calls) {
-            if (call.archiveKey() !in archivedKeys) continue
+            if (!source.contains(call, archivedKeys)) continue
             if (!SpamRules.reportable(call.number) || HiddenRules.matchesSender(hidden, call.number) || store.permitido(call.number)) {
                 omitted++
                 continue

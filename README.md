@@ -208,6 +208,11 @@ El bloqueo local se completa aunque falle la red o se alcancen los 30 intentos d
 indica los pendientes y permite reintentarlos. **Detener** cancela los siguientes envíos; el que ya
 estaba en curso puede completarse. Las llamadas permanecen archivadas.
 
+El mismo botón está en **Recientes → Bloqueadas → Enviar todas a spam**, con revisión, categoría y
+reintento de pendientes. Incluye todas las llamadas rechazadas o bloqueadas de ese filtro, también
+las antiguas, sin limitarse a la búsqueda actual. Las que ya están archivadas se gestionan desde
+Archivadas. No mezcla llamadas entrantes, salientes ni perdidas normales con los reportes de Bloqueadas.
+
 El umbral de un reporte requiere desplegar el Worker de esta versión. Las versiones anteriores de
 Android que exigían tres reportes también necesitan actualizarse. Tellows sigue desactivado y sus
 requisitos de al menos tres comentarios no cambian.

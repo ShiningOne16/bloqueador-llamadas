@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: () -> Unit) {
+fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: () -> Unit,
+    source: SpamCallSource = SpamCallSource.ARCHIVED) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var plan by remember { mutableStateOf<ArchivedSpamPlan?>(null) }
@@ -29,7 +30,7 @@ fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: (
 
     LaunchedEffect(Unit) {
         try {
-            plan = withContext(Dispatchers.IO) { ArchivedSpam.prepare(context, calls, ArchiveStore(context).read().calls) }
+            plan = withContext(Dispatchers.IO) { ArchivedSpam.prepare(context, calls, ArchiveStore(context).read().calls, source) }
         } catch (e: CancellationException) { throw e
         } catch (_: Exception) { error = "No se pudo comprobar la privacidad de los números. No se enviará ninguno." }
     }
@@ -48,7 +49,7 @@ fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: (
     }
     AlertDialog(
         onDismissRequest = { if (!sending) onClose() },
-        title = { Text("Enviar archivadas a spam") },
+        title = { Text("Enviar ${source.label} a spam") },
         text = {
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val current = plan
@@ -62,13 +63,13 @@ fun ArchivedSpamDialog(calls: List<CallEntry>, onClose: () -> Unit, onChanged: (
                         Text("${done.blocked} números bloqueados en tu teléfono. ${done.sent} reportes enviados; ${done.alreadyReported} ya estaban enviados.")
                         Text("${done.pending} pendientes de envío. ${done.omitted} registros omitidos.")
                         done.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        Text("Las llamadas siguen archivadas. La lista comunitaria se publica en la siguiente actualización del servidor, hasta 6 horas después.")
+                        Text("Los registros de llamadas y su archivo se conservan. La lista comunitaria se publica en la siguiente actualización del servidor, hasta 6 horas después.")
                     }
                     else -> {
                         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (current == null && error == null) CircularProgressIndicator()
                         if (current != null) {
-                            Text("Revisa estos ${current.numbers.size} números únicos de todas tus llamadas archivadas, aunque no aparezcan en la búsqueda actual.")
+                            Text("Revisa estos ${current.numbers.size} números únicos de todas tus llamadas ${source.label} de este filtro, aunque no aparezcan en la búsqueda actual.")
                             Text(current.numbers.joinToString("\n").ifEmpty { "No hay números compatibles para reportar." },
                                 Modifier.fillMaxWidth().heightIn(max = 160.dp).verticalScroll(rememberScrollState()))
                             Text("${current.omitted} registros omitidos. Se respetan No es spam, los contactos ocultos y el NIP alternativo; solo se admiten números de México.")

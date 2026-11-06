@@ -78,10 +78,14 @@ object PhoneData {
 
     // ---------------- Registro de llamadas ----------------
 
-    fun loadCalls(context: Context, limit: Int = 500, onlyIds: Set<Long>? = null, includeHidden: Boolean = false): List<CallEntry> {
+    fun loadCalls(context: Context, limit: Int = 500, onlyIds: Set<Long>? = null, includeHidden: Boolean = false,
+        blockedOnly: Boolean = false): List<CallEntry> {
         if (!has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         if (onlyIds != null && onlyIds.isEmpty()) return emptyList()
         val out = ArrayList<CallEntry>()
+        val conditions = mutableListOf<String>()
+        onlyIds?.let { conditions += "${CallLog.Calls._ID} IN (${it.joinToString(",")})" }
+        if (blockedOnly) conditions += "${CallLog.Calls.TYPE} IN (${CallLog.Calls.REJECTED_TYPE},${CallLog.Calls.BLOCKED_TYPE})"
         val projection = arrayOf(
             CallLog.Calls._ID,
             CallLog.Calls.NUMBER,
@@ -92,9 +96,10 @@ object PhoneData {
         )
         context.contentResolver.query(
             CallLog.Calls.CONTENT_URI, projection,
-            onlyIds?.let { "${CallLog.Calls._ID} IN (${it.joinToString(",")})" }, null, "${CallLog.Calls.DATE} DESC"
+            conditions.takeIf { it.isNotEmpty() }?.joinToString(" AND "), null, "${CallLog.Calls.DATE} DESC"
         )?.use { c ->
-            while (c.moveToNext() && (onlyIds != null || out.size < limit)) {
+            // Archivadas y Bloqueadas deben incluir todo su filtro, también los registros antiguos.
+            while (c.moveToNext() && (onlyIds != null || blockedOnly || out.size < limit)) {
                 out += CallEntry(
                     id = c.getLong(0),
                     number = c.getString(1).orEmpty(),

@@ -74,7 +74,8 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     var denied by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
-    var spamArchived by remember { mutableStateOf<List<CallEntry>?>(null) }
+    var spamCalls by remember { mutableStateOf<List<CallEntry>?>(null) }
+    var spamSource by remember { mutableStateOf(SpamCallSource.ARCHIVED) }
     val scope = rememberCoroutineScope()
 
     fun deleteConfirmed(calls: List<CallEntry>) {
@@ -101,13 +102,15 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     }
 
     var llamadas by remember { mutableStateOf<List<CallEntry>?>(null) }
-    LaunchedEffect(refreshKey, tienePermiso, recarga, filtro == 3) {
+    LaunchedEffect(refreshKey, tienePermiso, recarga, filtro == 3, filtro == 2) {
         if (tienePermiso) {
             loadError = false
             llamadas = null
             try {
                 llamadas = withContext(Dispatchers.IO) {
-                    PhoneData.loadCalls(context, onlyIds = if (filtro == 3) archive.calls.mapNotNull { it.substringBefore(':').toLongOrNull() }.toSet() else null)
+                    PhoneData.loadCalls(context,
+                        onlyIds = if (filtro == 3) archive.calls.mapNotNull { it.substringBefore(':').toLongOrNull() }.toSet() else null,
+                        blockedOnly = filtro == 2)
                 }
                 selectedKeys = HistorySelection.prune(selectedKeys, llamadas.orEmpty().map { it.archiveKey() })
             } catch (e: CancellationException) { throw e
@@ -173,10 +176,11 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
         if (filtro == 3) Text("Archivo local de esta app. Toca una llamada para desarchivarla.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (filtro == 3 && !selectionMode) {
+        if ((filtro == 2 || filtro == 3) && !selectionMode) {
+            val source = if (filtro == 2) SpamCallSource.BLOCKED else SpamCallSource.ARCHIVED
             FilledTonalButton(
-                enabled = !busy && !loadError && llamadas?.any { it.archiveKey() in archive.calls } == true,
-                onClick = { spamArchived = llamadas.orEmpty().toList() },
+                enabled = !busy && !loadError && llamadas?.any { source.contains(it, archive.calls) } == true,
+                onClick = { spamSource = source; spamCalls = llamadas.orEmpty().toList() },
                 modifier = Modifier.padding(horizontal = Esp.l)
             ) { Icon(Icons.Filled.Report, contentDescription = null); Spacer(Modifier.width(Esp.s)); Text("Enviar todas a spam") }
         }
@@ -259,8 +263,8 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
     }
 
-    spamArchived?.let { calls ->
-        ArchivedSpamDialog(calls, onClose = { spamArchived = null }, onChanged = { recarga++ })
+    spamCalls?.let { calls ->
+        ArchivedSpamDialog(calls, onClose = { spamCalls = null }, onChanged = { recarga++ }, source = spamSource)
     }
     seleccion?.let { g ->
         val call = g.latest

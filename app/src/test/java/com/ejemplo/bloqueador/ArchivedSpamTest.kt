@@ -25,7 +25,7 @@ class ArchivedSpamTest {
     private val second = "5598765432"
     private val third = "5511112222"
 
-    private fun call(id: Long, number: String) = CallEntry(id, number, "Nombre local", CallLog.Calls.INCOMING_TYPE, id, 10)
+    private fun call(id: Long, number: String, type: Int = CallLog.Calls.INCOMING_TYPE) = CallEntry(id, number, "Nombre local", type, id, 10)
     private fun plan(vararg numbers: String): ArchivedSpamPlan {
         val calls = numbers.mapIndexed { index, number -> call(index.toLong(), number) }
         return ArchivedSpam.prepare(context, calls, calls.map { it.archiveKey() }.toSet())
@@ -59,6 +59,31 @@ class ArchivedSpamTest {
         try { plan(first); fail("Debe impedir preparar el envío")
         } catch (_: IllegalStateException) { }
         assertFalse(Prefs(context).manuallyBlocked(first))
+    }
+
+    @Test fun blockedPreparationIncludesOnlyItsFilterAndKeepsPrivacyAndNoSpam() {
+        val allowed = "5522223333"
+        val hidden = "5533334444"
+        SpamStore(context).permitir(allowed, true)
+        val calls = listOf(
+            call(1, first, CallLog.Calls.BLOCKED_TYPE),
+            call(2, "+525512345678", CallLog.Calls.REJECTED_TYPE),
+            call(3, third), call(4, third, CallLog.Calls.MISSED_TYPE),
+            call(5, third, CallLog.Calls.OUTGOING_TYPE),
+            call(6, second, CallLog.Calls.BLOCKED_TYPE),
+            call(7, allowed, CallLog.Calls.REJECTED_TYPE),
+            call(8, hidden, CallLog.Calls.BLOCKED_TYPE),
+            call(9, "", CallLog.Calls.BLOCKED_TYPE),
+            call(10, "+345512345678", CallLog.Calls.REJECTED_TYPE)
+        )
+        SesionEntrada.entrarFalso(listOf(HiddenContact("Oculto", listOf(hidden))))
+        try {
+            val result = ArchivedSpam.prepare(context, calls, setOf(calls[5].archiveKey()), SpamCallSource.BLOCKED)
+            assertEquals(listOf(first), result.numbers)
+            assertEquals(4, result.omitted)
+            assertFalse(Prefs(context).manuallyBlocked(first))
+            assertTrue(SpamStore(context).permitido(allowed))
+        } finally { SesionEntrada.abrirNormal() }
     }
 
     @Test fun sendsIndividualReportsWithoutNamesHistoryOrDuplicateNumbersAndKeepsArchives() = runBlocking {
