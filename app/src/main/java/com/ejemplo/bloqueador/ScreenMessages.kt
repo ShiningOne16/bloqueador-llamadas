@@ -213,7 +213,7 @@ fun PantallaMensajes(refreshKey: Int, pedirPermisos: () -> Unit, request: SmsOpe
             }
 
             if (!selectionMode) {
-                Buscador(busqueda, { busqueda = it }, "Buscar nombre, número o mensaje")
+                Buscador(busqueda, { busqueda = it }, "Buscar en mensajes")
                 Filtros(listOf("Todos", "Sin leer", "Desconocidos", "Archivadas"), filtro) { filtro = it }
             }
             if (filtro == 3) Text("Archivo local. Un SMS nuevo devuelve la conversación a la bandeja.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s), style = MaterialTheme.typography.bodySmall)
