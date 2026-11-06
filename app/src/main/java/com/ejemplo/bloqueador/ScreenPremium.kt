@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /** Se actualiza al cambiar el minuto, también si se deja abierta la pantalla. */
 @Composable
@@ -66,6 +68,7 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
     var viendoEntrada by rememberSaveable { mutableStateOf(false) }
     val prefsLlamada = remember { Prefs(context) }
     var esperarLlamada by remember { mutableStateOf(prefsLlamada.delayCall) }
+    var tiempoEspera by remember { mutableIntStateOf(prefsLlamada.delayCallSeconds) }
     // Una sola función abierta a la vez en la lista.
     var funcionAbierta by rememberSaveable { mutableStateOf<String?>(null) }
     fun alternar(id: String) { funcionAbierta = if (funcionAbierta == id) null else id }
@@ -177,10 +180,31 @@ fun PantallaPremium(onCerrar: () -> Unit, onChanged: () -> Unit, refreshKey: Int
                         DivisorFuncion()
                         FilaFuncion(
                             Icons.Filled.Timer, "Esperar antes de llamar",
-                            "Antes de marcar sale una cuenta regresiva de 2 segundos con Cancelar, por si tocaste Llamar por error.",
+                            "Elige una espera de 1 a 10 segundos antes de marcar, con Cancelar por si tocaste Llamar por error.",
                             abierta = funcionAbierta == "espera", onAlternar = { alternar("espera") }, onAbrir = {},
                             interruptor = esperarLlamada,
-                            onInterruptor = { esperarLlamada = it; prefsLlamada.delayCall = it }
+                            onInterruptor = { esperarLlamada = it; prefsLlamada.delayCall = it },
+                            ajustes = {
+                                Text("Tiempo de espera: $tiempoEspera ${if (tiempoEspera == 1) "segundo" else "segundos"}",
+                                    style = MaterialTheme.typography.bodyLarge)
+                                Slider(
+                                    value = tiempoEspera.toFloat(),
+                                    onValueChange = {
+                                        tiempoEspera = it.roundToInt()
+                                        prefsLlamada.delayCallSeconds = tiempoEspera
+                                    },
+                                    valueRange = RetrasoLlamada.SEGUNDOS_MIN.toFloat()..RetrasoLlamada.SEGUNDOS_MAX.toFloat(),
+                                    steps = RetrasoLlamada.SEGUNDOS_MAX - RetrasoLlamada.SEGUNDOS_MIN - 1,
+                                    modifier = Modifier.fillMaxWidth().semantics {
+                                        contentDescription = "Tiempo de espera antes de llamar"
+                                        stateDescription = "$tiempoEspera ${if (tiempoEspera == 1) "segundo" else "segundos"}"
+                                    }
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("1 s", style = MaterialTheme.typography.labelMedium)
+                                    Text("10 s", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
                         )
                     }
                 }
@@ -545,7 +569,8 @@ private fun FilaFuncion(
     onAbrir: () -> Unit,
     /** Si no es null, la función se enciende aquí mismo con un interruptor en vez del botón "Abrir". */
     interruptor: Boolean? = null,
-    onInterruptor: (Boolean) -> Unit = {}
+    onInterruptor: (Boolean) -> Unit = {},
+    ajustes: @Composable () -> Unit = {}
 ) {
     val giro by animateFloatAsState(if (abierta) 180f else 0f, label = "giroFlecha")
     Column(Modifier.fillMaxWidth()) {
@@ -589,6 +614,7 @@ private fun FilaFuncion(
                         Text("Activar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         Switch(checked = interruptor, onCheckedChange = null)
                     }
+                    ajustes()
                 }
             }
         }

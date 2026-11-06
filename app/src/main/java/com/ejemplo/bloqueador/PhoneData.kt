@@ -338,7 +338,8 @@ object Acciones {
     /** Pide marcar: si la espera está activa, antes sale la cuenta regresiva con "Cancelar". */
     fun llamar(context: Context, number: String) {
         if (number.isBlank()) return
-        if (Prefs(context).delayCall) RetrasoLlamada.pedir(number) else llamarYa(context, number)
+        val prefs = Prefs(context)
+        if (prefs.delayCall) RetrasoLlamada.pedir(number, prefs.delayCallSeconds) else llamarYa(context, number)
     }
 
     fun llamarYa(context: Context, number: String) {

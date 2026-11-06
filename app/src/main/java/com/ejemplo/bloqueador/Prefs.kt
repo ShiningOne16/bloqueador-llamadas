@@ -56,10 +56,17 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_ALLOW_REPEAT, false)
         set(v) = sp.edit().putBoolean(KEY_ALLOW_REPEAT, v).apply()
 
-    /** Función Premium: espera 2 segundos (con "Cancelar") antes de marcar. Apagado por defecto. */
+    /** Función Premium: espera configurable (con "Cancelar") antes de marcar. Apagado por defecto. */
     var delayCall: Boolean
         get() = sp.getBoolean(KEY_DELAY_CALL, false)
         set(v) = sp.edit().putBoolean(KEY_DELAY_CALL, v).apply()
+
+    /** De 1 a 10 segundos; conserva la espera anterior de 2 segundos hasta que se cambie. */
+    var delayCallSeconds: Int
+        get() = sp.getInt(KEY_DELAY_CALL_SECONDS, RetrasoLlamada.SEGUNDOS_DEFECTO)
+            .coerceIn(RetrasoLlamada.SEGUNDOS_MIN, RetrasoLlamada.SEGUNDOS_MAX)
+        set(v) = sp.edit().putInt(KEY_DELAY_CALL_SECONDS,
+            v.coerceIn(RetrasoLlamada.SEGUNDOS_MIN, RetrasoLlamada.SEGUNDOS_MAX)).apply()
 
     /** Los contactos ocultos no dejan rastro: sus registros anteriores tampoco se guardan ni se muestran. */
     private fun storedCalls(): List<BlockedCall> {
@@ -153,6 +160,7 @@ class Prefs(context: Context) {
         private const val KEY_BLOCK_HIDDEN = "block_hidden"
         private const val KEY_ALLOW_REPEAT = "allow_repeat"
         private const val KEY_DELAY_CALL = "delay_call"
+        private const val KEY_DELAY_CALL_SECONDS = "delay_call_seconds"
         private const val KEY_LOG = "log"
         private const val KEY_SMS_ENABLED = "sms_enabled"
         private const val KEY_SMS_BUSINESS = "sms_business"

@@ -104,7 +104,8 @@ de MMS según el operador. Las pruebas automatizadas no sustituyen esa validaci�
 La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes y Protección. Abre la **vista previa gratuita** de:
 
 - **Esperar antes de llamar:** opción apagada por defecto. Al activarla, muestra una cuenta regresiva de
-  2 segundos con Cancelar y Llamar ya. Salir de la actividad o destruirla cancela la llamada pendiente;
+  1 a 10 segundos, ajustable desde Premium, con Cancelar y Llamar ya. La elección se guarda y empieza
+  en 2 segundos hasta que la cambies. Salir de la actividad o destruirla cancela la llamada pendiente;
   volver a abrir la app no vuelve a marcar por esa pulsación.
 - **Horarios de protección:** elige días de la semana y horas de inicio y fin para llamadas y SMS.
   Se usa la hora local del teléfono. Un turno nocturno continúa al día siguiente: lunes 22:00–07:00

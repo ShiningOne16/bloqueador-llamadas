@@ -27,14 +27,23 @@ import kotlin.math.ceil
 
 /** Espera corta antes de marcar, para poder cancelar una llamada hecha por error. */
 object RetrasoLlamada : DefaultLifecycleObserver {
-    const val ESPERA_MS = 2000
+    const val SEGUNDOS_MIN = 1
+    const val SEGUNDOS_MAX = 10
+    const val SEGUNDOS_DEFECTO = 2
+
+    /** La duración se fija al pedir la llamada y no cambia mientras está pendiente. */
+    var esperaMs = SEGUNDOS_DEFECTO * 1000
+        private set
 
     /** Número que se va a marcar cuando termine la espera; null si no hay ninguna pendiente. */
     var pendiente by mutableStateOf<String?>(null)
         private set
 
-    fun pedir(numero: String) {
-        if (pendiente == null) pendiente = numero
+    fun pedir(numero: String, segundos: Int = SEGUNDOS_DEFECTO) {
+        if (pendiente == null) {
+            esperaMs = segundos.coerceIn(SEGUNDOS_MIN, SEGUNDOS_MAX) * 1000
+            pendiente = numero
+        }
     }
 
     fun cancelar() {
@@ -46,15 +55,16 @@ object RetrasoLlamada : DefaultLifecycleObserver {
     override fun onDestroy(owner: LifecycleOwner) = cancelar()
 }
 
-/** Cuenta regresiva de 2 s con "Cancelar". Va una sola vez en la raíz de la app. */
+/** Cuenta regresiva configurable con "Cancelar". Va una sola vez en la raíz de la app. */
 @Composable
 fun AvisoLlamada() {
     val numero = RetrasoLlamada.pendiente ?: return
+    val esperaMs = RetrasoLlamada.esperaMs
     val context = LocalContext.current
     val progreso = remember(numero) { Animatable(0f) }
 
     LaunchedEffect(numero) {
-        progreso.animateTo(1f, tween(RetrasoLlamada.ESPERA_MS, easing = LinearEasing))
+        progreso.animateTo(1f, tween(esperaMs, easing = LinearEasing))
         // El ciclo de vida puede cancelar antes de que Compose retire este efecto.
         if (RetrasoLlamada.pendiente == numero) {
             RetrasoLlamada.cancelar()
@@ -62,7 +72,7 @@ fun AvisoLlamada() {
         }
     }
 
-    val segundos = ceil((1f - progreso.value) * RetrasoLlamada.ESPERA_MS / 1000f).toInt().coerceAtLeast(1)
+    val segundos = ceil((1f - progreso.value) * esperaMs / 1000f).toInt().coerceAtLeast(1)
     AlertDialog(
         onDismissRequest = { RetrasoLlamada.cancelar() },
         title = { Text("Llamando a $numero") },
