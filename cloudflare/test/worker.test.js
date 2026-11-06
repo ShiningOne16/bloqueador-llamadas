@@ -115,15 +115,27 @@ test('el límite diario responde 429', async () => {
   assert.strictEqual(ultimo.status, 429);
 });
 
-test('la lista solo incluye números con suficientes personas distintas y la categoría dominante', async () => {
+test('la lista conserva el conteo y la categoría dominante de reportes distintos', async () => {
   const { env } = crearEntorno();
-  for (let i = 0; i < UMBRAL_REPORTES; i++) await reportar(env, { numero: '5512345678', categoria: i === 0 ? 'ventas' : 'cobranza' });
+  for (let i = 0; i < 3; i++) await reportar(env, { numero: '5512345678', categoria: i === 0 ? 'ventas' : 'cobranza' });
   for (let i = 0; i < UMBRAL_REPORTES - 1; i++) await reportar(env, { numero: '5598765432' });
   assert.strictEqual(await publicar(env), 1);
   const lista = await (await manejar(new Request('https://x.test/lista'), env)).json();
   assert.strictEqual(lista.v, 1);
   assert.strictEqual(lista.n.length, 1);
-  assert.deepStrictEqual(lista.n[0], ['3a1ec8160591', 1, UMBRAL_REPORTES]); // categoría 1 = cobranza
+  assert.deepStrictEqual(lista.n[0], ['3a1ec8160591', 1, 3]); // categoría 1 = cobranza
+});
+
+test('un reporte basta para publicar un número y retirar el último voto lo elimina', async () => {
+  const { env } = crearEntorno();
+  const id = 'instalacion-unica-12345';
+  await reportar(env, { instalacion: id, categoria: 'estafa' });
+  await publicar(env);
+  const lista = await (await manejar(new Request('https://x.test/lista?fuentes=3'), env)).json();
+  assert.strictEqual(lista.min, 1);
+  assert.deepStrictEqual(lista.n, [['3a1ec8160591', 3, 1]]);
+  await retirar(env, '5512345678', id);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
 });
 
 test('antes de publicar la lista está vacía y se puede cachear', async () => {
@@ -325,7 +337,7 @@ test('retirar solo elimina el voto propio y recalcula el umbral comunitario', as
   assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 3);
   assert.strictEqual((await retirar(env, '5512345678', id)).status, 200);
   assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 2);
-  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, [['3a1ec8160591', 1, 2]]);
   assert.strictEqual((await retirar(env, '5512345678', id)).status, 200);
 });
 
@@ -342,7 +354,7 @@ test('reintentar la retirada repara una publicación fallida y conserva otros vo
   assert.strictEqual(sqlite.prepare('SELECT COUNT(*) c FROM reportes').get().c, 2);
   env.LISTA.put = guardar;
   await retirar(env, '5512345678', id);
-  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, []);
+  assert.deepStrictEqual(JSON.parse(await env.LISTA.get('lista')).n, [['3a1ec8160591', 1, 2]]);
 });
 
 test('retirar no elimina reportes de otros números ni borra los límites diarios', async () => {

@@ -75,10 +75,10 @@ Referencia del formato y parámetros: [documentación oficial](https://si.tellow
 - `POST /retirar` `{numero, instalacion}`: retira únicamente el voto de esa instalación y vuelve a publicar
   la lista. Es idempotente y admite reintentos tras fallos de publicación. Tiene un límite separado de
   30 solicitudes al día por red e instalación, sin reiniciar los contadores de reportes.
-- `GET /lista`: JSON `{v, generado, min, n:[[huella, categoria, reportes]]}` con los números reportados por al menos 3 personas distintas.
+- `GET /lista`: JSON `{v, generado, min, n:[[huella, categoria, reportes]]}` con los números con al menos un reporte explícito (`min: 1`). No implica confirmación de otros usuarios.
 - `GET /lista?fuentes=2`: añade Tellows cuando esté autorizado y configurado. Sus entradas son
   `[huella, 0, 0, "tellows", score]`; `tellows_hasta` indica su caducidad en milisegundos. El cero
-  en reportes no se interpreta como tres reportes propios. `fuentes.tellows` informa del estado.
+  en reportes no se interpreta como un reporte comunitario. `fuentes.tellows` informa del estado.
 - `GET /lista?fuentes=3`: mismo formato combinado, con `comunidad_hasta`. La comunidad caduca en la app
   como máximo 7 días después de `generado`, incluso sin conexión. La app también calcula ese límite para
   listas de servidores antiguos que no traigan el campo. Las listas comunitarias sin fecha no se usan.
@@ -111,6 +111,19 @@ Este cambio requiere desplegar el Worker actualizado para habilitar `/retirar`; 
 seguirá aceptando los reportes normales y la corrección local funcionará, pero retirar el voto dará un
 error recuperable hasta el despliegue. No hay cambios de esquema. Usa D1, KV y SAL existentes, sin
 reemplazar identificadores reales por los marcadores de `wrangler.toml` y sin activar Tellows.
+
+## Umbral de un reporte y llamadas archivadas (Android 2.1.9)
+
+La lista comunitaria admite un número desde el primer reporte. Se mantienen la deduplicación por red
+e instalación, los 30 intentos diarios y las caducidades. Tellows sigue desactivado; su mínimo de tres
+comentarios no cambia. Esta política requiere desplegar el Worker actualizado con D1/KV/SAL existentes.
+Tras el despliegue, el próximo cron vuelve a publicar con `min: 1` (hasta seis horas). Las apps anteriores
+que exigían tres reportes deben actualizarse para bloquear entradas con uno o dos reportes.
+
+El botón de Archivadas revisa y confirma números únicos y una categoría. Emite solicitudes individuales
+a `/reportar`, nunca un lote JSON, una agenda o un historial. Respeta los números ocultos y «No es spam»;
+si no se puede descifrar la lista privada, impide el proceso. Al fallar una solicitud o recibir 429,
+detiene los siguientes envíos, conserva el bloqueo local y permite reintentar sin repetir los confirmados.
 
 ## Pruebas
 

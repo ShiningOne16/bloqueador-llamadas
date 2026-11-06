@@ -72,11 +72,17 @@ class SpamListaTest {
         }
     }
 
-    @Test fun undatedAndUncorroboratedCommunityEntriesAreNotUsed() {
+    @Test fun undatedAndZeroReportCommunityEntriesAreNotUsed() {
         write("""{"v":1,"n":[["community",1,3]]}""")
         assertTrue(SpamLista.mapa(context, 100).isEmpty())
-        write("""{"v":1,"generado":1,"n":[["community",1,2]]}""")
+        write("""{"v":1,"generado":1,"n":[["community",1,0]]}""")
         assertTrue(SpamLista.mapa(context, 100).isEmpty())
+    }
+
+    @Test fun oneReportIsEnoughAndStillExpiresOffline() {
+        write("""{"v":1,"min":1,"generado":1,"n":[["single",3,1],["multiple",1,2]]}""")
+        assertEquals(mapOf("single" to 3, "multiple" to 1), SpamLista.mapa(context, 100))
+        assertTrue(SpamLista.mapa(context, 1 + SpamRules.VIGENCIA_LISTA_MS).isEmpty())
     }
 
     @Test fun communityDoesNotMatchForeignNumbersWithTheSameSuffix() {

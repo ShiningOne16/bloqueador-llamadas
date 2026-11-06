@@ -25,6 +25,7 @@ object SpamRules {
     // Debe coincidir con PEPPER de cloudflare/src/lib.js.
     private const val PEPPER = "bloqueador-spam-v1:"
     const val MAX_LISTA_BYTES = 8 * 1024 * 1024
+    const val MIN_REPORTES = 1
     const val VIGENCIA_LISTA_MS = 7 * 24 * 60 * 60 * 1000L
 
     /** Huella de 12 caracteres de los últimos 10 dígitos: la lista no guarda números legibles. */
@@ -87,7 +88,7 @@ object SpamLista {
                 val e = array.getJSONArray(i)
                 if (e.optString(3) == "tellows" && ahora >= tellowsHasta) continue
                 if (e.optString(3) != "tellows" && ahora >= comunidadHasta) continue
-                if (e.optString(3) != "tellows" && e.optInt(2, 0) < 3) continue
+                if (e.optString(3) != "tellows" && e.optInt(2, 0) < SpamRules.MIN_REPORTES) continue
                 m[e.getString(0)] = e.optInt(1, 0)
                 if (e.optString(3) == "tellows") tellows.add(e.getString(0))
             }
@@ -244,12 +245,17 @@ object SpamComunidad {
         } catch (_: Exception) { "No se pudo comprobar la privacidad del número. No se enviará." }
     }
 
-    fun reportar(context: Context, numero: String, categoria: CategoriaSpam,
-        conectar: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }): String? {
+    internal fun prepararReporteLocal(context: Context, numero: String): String? {
         errorReporte(context, numero)?.let { return it }
         Prefs(context).setManualBlock(numero, true)
         SpamStore(context).permitir(numero, false)
         SpamStore(context).marcarReporteLocal(numero)
+        return null
+    }
+
+    fun reportar(context: Context, numero: String, categoria: CategoriaSpam,
+        conectar: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }): String? {
+        prepararReporteLocal(context, numero)?.let { return it }
         val base = servidor(context) ?: return "Los reportes todavía no están configurados en esta versión."
         val store = SpamStore(context)
         if (store.reportado(numero)) return null

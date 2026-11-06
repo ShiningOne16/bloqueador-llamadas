@@ -138,8 +138,8 @@ La pestaña **Premium** está en la barra inferior, junto a Recientes, Mensajes 
   llamadas ni SMS por borrar. Si faltan permisos o falla un borrado, la protección se conserva y puedes
   volver a intentarlo; los datos que ya se borraron no se recuperan. Otras apps, como la agenda o el teléfono del sistema, pueden seguir mostrando al contacto
   y sus llamadas anteriores.
-- **Lista de spam:** la app descarga una vez al día una lista de números que al menos 3 personas
-  distintas reportaron como spam (cobranza, ventas, estafa, encuesta) y, si lo activas, rechaza esas llamadas y las
+- **Lista de spam:** la app descarga una vez al día una lista de números con al menos un reporte
+  explícito como spam (cobranza, ventas, estafa, encuesta) y, si lo activas, rechaza esas llamadas y las
   marca como "Spam: tipo" en Recientes. Nunca bloquea contactos, excepciones de permitir ni números marcados
   "No es spam". Desde el panel de una llamada se puede reportar un número (se envía solo el número, el tipo y un
   identificador anónimo). La consulta se hace en tu teléfono: el servidor no sabe quién te llama. El servidor es
@@ -193,12 +193,24 @@ envía únicamente el número mexicano elegido, la categoría y un identificador
 El servidor recibe la IP para limitar abusos; las huellas almacenadas no garantizan anonimato.
 Los contactos ocultos nunca se exportan y los contactos normales no forman una lista blanca global.
 
-El bloqueo personal funciona aunque falle el envío. La lista comunitaria exige tres instalaciones y
-redes distintas, con límites diarios; no es una verificación de identidad de tres personas. Los reportes
+El bloqueo personal funciona aunque falle el envío. La lista comunitaria admite números desde un
+reporte explícito, con límites diarios; no implica confirmación independiente de otros usuarios. Los reportes
 caducan a los 180 días y esta versión deja de usar una copia comunitaria tras 7 días sin actualizarla.
 **No es spam** quita el bloqueo manual, evita el bloqueo por la lista e intenta retirar tu voto. Puedes
 reintentar si falla el servidor, incluso si el envío original quedó sin confirmar por una respuesta
 perdida. Otras reglas personales siguen aplicándose.
+
+Desde **Recientes → Archivadas → Enviar todas a spam** puedes revisar los números únicos de todas las
+llamadas archivadas y elegir una categoría antes de confirmar. Se excluyen privados, extranjeros,
+contactos ocultos, los ocultados por el NIP alternativo y los marcados «No es spam». Se envía cada número
+por separado, sin nombres, fechas ni historial. Los reportes confirmados no se vuelven a enviar.
+El bloqueo local se completa aunque falle la red o se alcancen los 30 intentos diarios; el resultado
+indica los pendientes y permite reintentarlos. **Detener** cancela los siguientes envíos; el que ya
+estaba en curso puede completarse. Las llamadas permanecen archivadas.
+
+El umbral de un reporte requiere desplegar el Worker de esta versión. Las versiones anteriores de
+Android que exigían tres reportes también necesitan actualizarse. Tellows sigue desactivado y sus
+requisitos de al menos tres comentarios no cambian.
 
 ## Cómo obtener el APK
 

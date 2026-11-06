@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.PhoneForwarded
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Voicemail
@@ -73,6 +74,7 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
     var denied by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
+    var spamArchived by remember { mutableStateOf<List<CallEntry>?>(null) }
     val scope = rememberCoroutineScope()
 
     fun deleteConfirmed(calls: List<CallEntry>) {
@@ -171,6 +173,13 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
         if (filtro == 3) Text("Archivo local de esta app. Toca una llamada para desarchivarla.", Modifier.padding(horizontal = Esp.l, vertical = Esp.s),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (filtro == 3 && !selectionMode) {
+            FilledTonalButton(
+                enabled = !busy && !loadError && llamadas?.any { it.archiveKey() in archive.calls } == true,
+                onClick = { spamArchived = llamadas.orEmpty().toList() },
+                modifier = Modifier.padding(horizontal = Esp.l)
+            ) { Icon(Icons.Filled.Report, contentDescription = null); Spacer(Modifier.width(Esp.s)); Text("Enviar todas a spam") }
+        }
         Spacer(Modifier.height(Esp.s))
 
         val lista = llamadas
@@ -250,6 +259,9 @@ fun PantallaRecientes(refreshKey: Int, pedirPermisos: () -> Unit, irAProteccion:
         }
     }
 
+    spamArchived?.let { calls ->
+        ArchivedSpamDialog(calls, onClose = { spamArchived = null }, onChanged = { recarga++ })
+    }
     seleccion?.let { g ->
         val call = g.latest
         HojaNumero(
