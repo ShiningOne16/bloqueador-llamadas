@@ -2,7 +2,10 @@
   "name": "bloqueador-spam-worker",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test --disable-warning=ExperimentalWarning test/*.test.js" },
-  "devDependencies": { "wrangler": "^3.90.0" }
+  "scripts": {
+    "test": "node --test --disable-warning=ExperimentalWarning test/*.test.js",
+    "build:dashboard": "node scripts/build-dashboard.mjs"
+  },
+  "devDependencies": { "wrangler": "^3.90.0", "esbuild": "0.17.19" }
 }
 

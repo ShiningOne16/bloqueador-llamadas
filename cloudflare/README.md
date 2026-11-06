@@ -22,6 +22,32 @@ Necesitas una cuenta gratuita de Cloudflare y Node.js 20 o más nuevo. Desde est
 
 La lista se regenera sola cada 6 horas (hasta entonces `/lista` devuelve una lista vacía).
 
+## Publicar desde Chrome en Android, sin compartir credenciales
+
+Para actualizar el Worker existente desde el panel de Cloudflare utiliza
+[`dashboard/worker.js`](dashboard/worker.js), que reúne los módulos del servidor en un solo archivo.
+No pegues únicamente `src/index.js`: sus importaciones requieren los otros módulos.
+
+1. En Chrome abre el panel de Cloudflare, inicia sesión y activa **Sitio para computadoras** si hace falta.
+2. En **Workers & Pages** selecciona **bloqueador-spam**, el que ya sirve la URL de la app. No crees otro Worker.
+3. Conserva los bindings de producción **DB** (la D1 existente), **LISTA** (el KV existente) y el secreto
+   **SAL**. No cambies su valor ni copies los identificadores de ejemplo de `wrangler.toml`.
+4. Abre **Edit code / Editar código**. Guarda una copia del código anterior y sustituye el contenido
+   del archivo JavaScript principal por todo el contenido de `dashboard/worker.js`.
+5. Pulsa **Deploy / Implementar** para publicar la nueva versión en producción. Solo guardar un borrador no basta.
+6. En **Settings / Configuración → Triggers / Activadores → Cron Triggers**, conserva o añade el cron
+   `0 */6 * * *` (cada seis horas, UTC). No actives Tellows; sus dos variables de activación deben seguir desactivadas.
+7. Comprueba `/lista?fuentes=3`: tras la siguiente ejecución del cron, debe aparecer `"min":1`.
+   Justo después de publicar puede seguir apareciendo `"min":3`, porque KV conserva la lista anterior
+   hasta regenerarla. La caché HTTP puede conservar una respuesta otra hora.
+
+Este método usa tu sesión del navegador: no tienes que crear un API Token ni enviarlo al chat.
+No ejecuta migraciones ni sustituye los recursos o secretos del servidor.
+
+Para regenerar el archivo después de modificar las fuentes: `npm install` y `npm run build:dashboard`.
+Las pruebas verifican que el archivo publicado corresponde a las fuentes actuales y prueban sus
+handlers de reportar, publicar por cron y retirar con SQLite real.
+
 ## Tellows para México
 
 La integración está preparada y **desactivada por defecto**. No se ha descargado una lista real ni
